@@ -68,16 +68,12 @@
     .tf-swing    { background: #1a3a2a; color: #4dff91; }
     .tf-position { background: #3a1a2a; color: #ff4d91; }
 
-    .trade-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-    }
+    .trade-row { display: flex; justify-content: space-between; padding: 4px 0; }
     .trade-label { font-size: 12px; color: #8899aa; }
     .trade-value { font-size: 12px; font-weight: 600; color: #ffffff; }
-    .trade-value.green  { color: #2ecc71; }
-    .trade-value.red    { color: #e74c3c; }
-    .trade-value.gold   { color: #f0b429; }
+    .trade-value.green { color: #2ecc71; }
+    .trade-value.red   { color: #e74c3c; }
+    .trade-value.gold  { color: #f0b429; }
 
     .pnl-row {
       display: flex;
@@ -104,8 +100,22 @@
       cursor: pointer;
       background: #f0b429;
       color: #0f1923;
+      transition: opacity 0.2s;
     }
     .btn-close:active { opacity: 0.8; }
+    .btn-close-disabled {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      background: #243447;
+      color: #3a4f63;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
 
     .close-form { margin-top: 12px; display: none; }
     .close-input-wrap { position: relative; margin-bottom: 10px; }
@@ -130,6 +140,7 @@
       outline: none;
     }
     .close-input:focus { border-color: #f0b429; }
+
     .btn-confirm {
       width: 100%;
       padding: 12px;
@@ -140,6 +151,32 @@
       cursor: pointer;
       background: #2ecc71;
       color: #0f1923;
+      transition: opacity 0.2s;
+    }
+    .btn-confirm:active { opacity: 0.8; }
+    .btn-confirm-done {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      background: #243447;
+      color: #2ecc71;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .close-confirm-msg {
+      display: none;
+      text-align: center;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      background: #1a3a2a;
+      color: #2ecc71;
     }
 
     .empty { text-align: center; padding: 16px; color: #3a4f63; font-size: 13px; }
@@ -159,25 +196,21 @@
 
   <div class="hidden" id="mainScreen">
 
-    <!-- Total P&L -->
     <div class="total-card">
       <div class="total-label">Total P&amp;L Today</div>
       <div class="total-value" id="totalPnl">₹0</div>
     </div>
 
-    <!-- Open Trades -->
     <div class="section">
       <div class="section-title">📂 Open Trades</div>
       <div id="openTradesList"><div class="empty">No open trades</div></div>
     </div>
 
-    <!-- Closed Trades -->
     <div class="section">
       <div class="section-title">✅ Closed Trades</div>
       <div id="closedTradesList"><div class="empty">No closed trades</div></div>
     </div>
 
-    <!-- Skipped Trades -->
     <div class="section">
       <div class="section-title">❌ Skipped Today</div>
       <div id="skippedTradesList"><div class="empty">No skipped trades today</div></div>
@@ -213,7 +246,6 @@
       return (n >= 0 ? '+' : '-') + '₹' + Math.abs(n).toLocaleString('en-IN');
     }
 
-    // ── Load P&L data ─────────────────────────────────────
     window.onload = function () {
       fetch(WEB_APP_URL + '?action=getUserPnL&userID=' + encodeURIComponent(userID))
         .then(r => r.json())
@@ -229,7 +261,6 @@
     };
 
     function renderAll(data) {
-      // Total P&L
       const totalEl = document.getElementById('totalPnl');
       totalEl.textContent = fmtPnl(data.totalPnl || 0);
       totalEl.className   = 'total-value ' + pnlClass(data.totalPnl || 0);
@@ -259,7 +290,7 @@
               <span class="pnl-label">Running P&L</span>
               <span class="pnl-value ${pnlClass(t.pnl)}">${fmtPnl(t.pnl)}</span>
             </div>
-            <button class="btn-close" onclick="showCloseForm('${t.sigID}', '${t.sym}', ${t.shares}, ${t.entry})">
+            <button class="btn-close" id="closeBtn_${t.sigID}" onclick="showCloseForm('${t.sigID}')">
               📤 Close This Trade
             </button>
             <div class="close-form" id="closeForm_${t.sigID}">
@@ -267,9 +298,10 @@
                 <span class="rupee-sm">₹</span>
                 <input class="close-input" type="number" id="exitInput_${t.sigID}" placeholder="Enter exit price" />
               </div>
-              <button class="btn-confirm" onclick="confirmClose('${t.sigID}', ${t.shares}, ${t.entry})">
+              <button class="btn-confirm" id="confirmBtn_${t.sigID}" onclick="confirmClose('${t.sigID}', ${t.shares}, ${t.entry})">
                 Confirm Close
               </button>
+              <div class="close-confirm-msg" id="closeMsg_${t.sigID}"></div>
             </div>
           </div>
         `).join('');
@@ -340,8 +372,7 @@
       }
     }
 
-    // ── Close trade flow ───────────────────────────────────
-    function showCloseForm(sigID, sym, shares, entry) {
+    function showCloseForm(sigID) {
       const form = document.getElementById('closeForm_' + sigID);
       form.style.display = form.style.display === 'block' ? 'none' : 'block';
     }
@@ -353,6 +384,18 @@
         return;
       }
 
+      // Lock confirm button immediately
+      const confirmBtn = document.getElementById('confirmBtn_' + sigID);
+      confirmBtn.className   = 'btn-confirm-done';
+      confirmBtn.textContent = 'Processing...';
+
+      // Lock close button too
+      const closeBtn = document.getElementById('closeBtn_' + sigID);
+      if (closeBtn) {
+        closeBtn.className   = 'btn-close-disabled';
+        closeBtn.textContent = '📤 Closing...';
+      }
+
       const url = WEB_APP_URL
         + '?action=closeTrade'
         + '&userID='    + encodeURIComponent(userID)
@@ -362,21 +405,34 @@
       fetch(url)
         .then(r => r.json())
         .then(data => {
+          const msgEl = document.getElementById('closeMsg_' + sigID);
           if (data.success) {
-            const pnl     = Math.round(shares * (exitPrice - entry));
-            const card    = document.getElementById('open_' + sigID);
-            card.style.opacity = '0.5';
-            card.innerHTML += `<div class="pnl-row" style="margin-top:10px;">
-              <span class="pnl-label">✅ Closed</span>
-              <span class="pnl-value ${pnlClass(pnl)}">${fmtPnl(pnl)}</span>
-            </div>`;
+            const pnl = Math.round(shares * (exitPrice - entry));
+            confirmBtn.textContent = '✅ Trade Closed!';
+            msgEl.textContent      = 'Booked P&L: ' + fmtPnl(pnl);
+            msgEl.style.display    = 'block';
+            if (closeBtn) closeBtn.textContent = '✅ Closed';
             // Reload after 2 seconds
             setTimeout(() => location.reload(), 2000);
           } else {
+            confirmBtn.className   = 'btn-confirm';
+            confirmBtn.textContent = 'Confirm Close';
+            if (closeBtn) {
+              closeBtn.className   = 'btn-close';
+              closeBtn.textContent = '📤 Close This Trade';
+            }
             alert('Something went wrong. Please try again.');
           }
         })
-        .catch(() => alert('Connection error. Please try again.'));
+        .catch(() => {
+          confirmBtn.className   = 'btn-confirm';
+          confirmBtn.textContent = 'Confirm Close';
+          if (closeBtn) {
+            closeBtn.className   = 'btn-close';
+            closeBtn.textContent = '📤 Close This Trade';
+          }
+          alert('Connection error. Please try again.');
+        });
     }
   </script>
 </body>
