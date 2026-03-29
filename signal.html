@@ -42,10 +42,18 @@
     .btn-take     { background: #2ecc71; color: #0f1923; }
     .btn-skip     { background: #243447; color: #8899aa; }
     .btn-register { background: #f0b429; color: #0f1923; }
-    .btn-disabled { background: #243447; color: #3a4f63; cursor: not-allowed; }
-    .status { text-align: center; font-size: 13px; padding: 12px; border-radius: 10px; margin-top: 8px; }
-    .status.success { background: #1a3a2a; color: #2ecc71; }
-    .status.error   { background: #3a1a1a; color: #e74c3c; }
+    .btn-disabled { background: #243447; color: #3a4f63; cursor: not-allowed; pointer-events: none; }
+    .confirm-box {
+      display: none;
+      text-align: center;
+      padding: 20px 16px;
+      border-radius: 12px;
+      margin-top: 8px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .confirm-box.success { background: #1a3a2a; color: #2ecc71; }
+    .confirm-box.error   { background: #3a1a1a; color: #e74c3c; }
     .hidden { display: none; }
     .loading { text-align: center; padding: 40px; color: #8899aa; }
   </style>
@@ -119,9 +127,11 @@
           <span class="row-value green" id="posAvailable">—</span>
         </div>
         <div class="divider"></div>
+
         <button class="btn btn-take" id="takeBtn" onclick="logAction('TAKE')">✅ TAKE this Trade</button>
         <button class="btn btn-skip" id="skipBtn" onclick="logAction('SKIP')">❌ SKIP this Trade</button>
-        <div class="status hidden" id="actionStatus"></div>
+
+        <div class="confirm-box" id="confirmBox"></div>
       </div>
     </div>
   </div>
@@ -185,9 +195,9 @@
       }
       const badge = document.getElementById('signalBadge');
       badge.textContent = signal.tf;
-      if (signal.tf === 'INTRADAY')      badge.className = 'badge badge-intraday';
-      else if (signal.tf === 'SWING')    badge.className = 'badge badge-swing';
-      else                               badge.className = 'badge badge-position';
+      if (signal.tf === 'INTRADAY')   badge.className = 'badge badge-intraday';
+      else if (signal.tf === 'SWING') badge.className = 'badge badge-swing';
+      else                            badge.className = 'badge badge-position';
     }
 
     function renderPosition(capital) {
@@ -212,14 +222,33 @@
       }
     }
 
+    function lockButtons(action) {
+      const takeBtn = document.getElementById('takeBtn');
+      const skipBtn = document.getElementById('skipBtn');
+      takeBtn.className   = 'btn btn-disabled';
+      skipBtn.className   = 'btn btn-disabled';
+      takeBtn.disabled    = true;
+      skipBtn.disabled    = true;
+      takeBtn.textContent = action === 'TAKE' ? '✅ TAKEN'   : '✅ TAKE';
+      skipBtn.textContent = action === 'SKIP' ? '❌ SKIPPED' : '❌ SKIP';
+    }
+
+    function showConfirm(msg, type) {
+      const box       = document.getElementById('confirmBox');
+      box.textContent = msg;
+      box.className   = 'confirm-box ' + type;
+      box.style.display = 'block';
+    }
+
     function logAction(action) {
       const riskAmt      = Math.round(userCapital * 0.01);
       const riskPerShare = signal.entry - signal.sl;
       const shares       = riskPerShare > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
       const required     = Math.round(shares * signal.entry);
 
-      document.getElementById('takeBtn').disabled = true;
-      document.getElementById('skipBtn').disabled = true;
+      // Lock buttons immediately on tap
+      lockButtons(action);
+      showConfirm('Processing...', 'success');
 
       const url = WEB_APP_URL
         + '?action=logAction'
@@ -237,27 +266,36 @@
       fetch(url)
         .then(r => r.json())
         .then(data => {
-          const el = document.getElementById('actionStatus');
-          el.classList.remove('hidden');
           if (data.success) {
-            el.className   = 'status success';
-            el.textContent = action === 'TAKE'
-              ? '✅ Trade logged! Good luck with ' + signal.symbol + '!'
-              : '❌ Skipped. Better luck on the next signal!';
+            showConfirm(
+              action === 'TAKE'
+                ? '✅ Trade Taken! Good luck with ' + signal.symbol + '!'
+                : '❌ Signal Skipped!',
+              'success'
+            );
           } else {
-            el.className   = 'status error';
-            el.textContent = 'Something went wrong. Please try again.';
-            document.getElementById('takeBtn').disabled = false;
-            document.getElementById('skipBtn').disabled = false;
+            showConfirm('Something went wrong. Please try again.', 'error');
+            // Unlock buttons on failure
+            const takeBtn = document.getElementById('takeBtn');
+            const skipBtn = document.getElementById('skipBtn');
+            takeBtn.className = 'btn btn-take';
+            skipBtn.className = 'btn btn-skip';
+            takeBtn.disabled  = false;
+            skipBtn.disabled  = false;
+            takeBtn.textContent = '✅ TAKE this Trade';
+            skipBtn.textContent = '❌ SKIP this Trade';
           }
         })
         .catch(() => {
-          const el       = document.getElementById('actionStatus');
-          el.classList.remove('hidden');
-          el.className   = 'status error';
-          el.textContent = 'Connection error. Please try again.';
-          document.getElementById('takeBtn').disabled = false;
-          document.getElementById('skipBtn').disabled = false;
+          showConfirm('Connection error. Please try again.', 'error');
+          const takeBtn = document.getElementById('takeBtn');
+          const skipBtn = document.getElementById('skipBtn');
+          takeBtn.className = 'btn btn-take';
+          skipBtn.className = 'btn btn-skip';
+          takeBtn.disabled  = false;
+          skipBtn.disabled  = false;
+          takeBtn.textContent = '✅ TAKE this Trade';
+          skipBtn.textContent = '❌ SKIP this Trade';
         });
     }
 
