@@ -243,7 +243,7 @@
 
     function showBrowserSignalPreview(signal) {
       const startParam = 'sig_' + signal.sym + '_' + signal.tf + '_' + signal.entry + '_' + signal.sl + '_' + signal.t1 + '_' + signal.t2 + '_' + signal.score;
-      const tgLink     = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=' + encodeURIComponent(startParam);
+     const tgLink     = makeTgLink(startParam);
       const t2Row      = signal.t2 > 0 ? `<div class="row"><span class="row-label">Target 2</span><span class="row-value green">${fmt(signal.t2)}</span></div>` : '';
 
       show(`
@@ -279,7 +279,7 @@
     }
 
     function showBrowserPnlRedirect() {
-      const tgLink = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=pnl';
+      const tgLink = makeTgLink('pnl');
       show(`
         <div class="redirect-card">
           <div class="redirect-icon">📈</div>
@@ -297,7 +297,7 @@
     }
 
     function showBrowserHome() {
-      const tgLink = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME;
+      const tgLink = makeTgLink('');
       show(`
         <div class="home-screen">
           <div style="font-size:48px;margin-bottom:16px;">🔔</div>
