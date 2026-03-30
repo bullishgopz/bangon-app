@@ -172,7 +172,7 @@
     // ── Open Telegram link — works on all devices ─────────────
     function openTelegram(startapp) {
       var link = makeTgLink(startapp);
-      window.open(link, '_blank');
+      window.location.href = link;
     }
 
     function fmt(n)      { return '₹' + Math.abs(Number(n)).toLocaleString('en-IN'); }
