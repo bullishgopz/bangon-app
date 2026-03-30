@@ -166,6 +166,11 @@
     const BOT_USERNAME = 'ace_gopal_scanner_bot';
     const APP_NAME     = 'bangon';
 
+    function makeTgLink(startapp) {
+      const base = 'tg://resolve?domain=' + BOT_USERNAME + '&appname=' + APP_NAME;
+      return startapp ? base + '&startapp=' + encodeURIComponent(startapp) : base;
+    }
+
     const tg         = window.Telegram.WebApp;
     const isInTG     = tg.initDataUnsafe && tg.initDataUnsafe.user;
     if (isInTG) tg.expand();
