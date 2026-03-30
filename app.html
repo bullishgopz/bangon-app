@@ -609,7 +609,7 @@
         if (data.success) {
           box.style.display = 'block'; box.className = 'confirm-box success';
           box.textContent = '✅ Capital saved! ₹' + capital.toLocaleString('en-IN');
-          setTimeout(() => showHomePage(), 1500);
+          setTimeout(() => showSignalsListPage(), 1500);
         } else {
           box.style.display = 'block'; box.className = 'confirm-box error';
           box.textContent = 'Something went wrong. Please try again.';
