@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bang-On Personal</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1923;
+      color: #ffffff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .logo { font-size: 24px; }
+    .brand { font-size: 18px; font-weight: 700; color: #f0b429; }
+    .tagline { font-size: 11px; color: #8899aa; margin-top: 2px; }
+
+    /* HOME SCREEN */
+    .home-screen { display: flex; flex-direction: column; align-items: center; padding: 20px 0; }
+    .welcome { font-size: 20px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+    .welcome-sub { font-size: 13px; color: #8899aa; margin-bottom: 40px; text-align: center; }
+    .home-btn {
+      width: 100%;
+      max-width: 360px;
+      padding: 18px 20px;
+      border-radius: 14px;
+      border: none;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: opacity 0.2s;
+    }
+    .home-btn:active { opacity: 0.8; }
+    .home-btn-icon { font-size: 24px; }
+    .home-btn-text { text-align: left; }
+    .home-btn-title { font-size: 15px; font-weight: 700; }
+    .home-btn-sub { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+    .btn-signals  { background: #1a3a5c; color: #4da6ff; }
+    .btn-pnl      { background: #1a3a2a; color: #2ecc71; }
+    .btn-capital  { background: #2a2a1a; color: #f0b429; }
+
+    /* CARDS */
+    .card { background: #1a2634; border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid #243447; }
+    .card-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .card-sub { font-size: 13px; color: #8899aa; margin-bottom: 20px; line-height: 1.5; }
+
+    /* SIGNAL */
+    .signal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .symbol { font-size: 22px; font-weight: 700; }
+    .badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
+    .badge-intraday { background: #1a3a5c; color: #4da6ff; }
+    .badge-swing    { background: #1a3a2a; color: #4dff91; }
+    .badge-position { background: #3a1a2a; color: #ff4d91; }
+    .score-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .score-label { font-size: 12px; color: #8899aa; }
+    .score-value { font-size: 14px; font-weight: 700; color: #f0b429; }
+    .divider { height: 1px; background: #243447; margin: 16px 0; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .row-label { font-size: 13px; color: #8899aa; }
+    .row-value { font-size: 13px; font-weight: 600; }
+    .row-value.green { color: #2ecc71; }
+    .row-value.red   { color: #e74c3c; }
+    .row-value.gold  { color: #f0b429; }
+    .section-title { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+    /* BUTTONS */
+    .btn { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; margin-bottom: 12px; }
+    .btn:active { opacity: 0.8; }
+    .btn-take     { background: #2ecc71; color: #0f1923; }
+    .btn-skip     { background: #243447; color: #8899aa; }
+    .btn-primary  { background: #f0b429; color: #0f1923; }
+    .btn-disabled { background: #243447; color: #3a4f63; cursor: not-allowed; pointer-events: none; }
+    .btn-back     { background: transparent; border: 1px solid #243447; color: #8899aa; margin-bottom: 16px; padding: 10px; font-size: 13px; }
+
+    /* CONFIRM BOX */
+    .confirm-box { display: none; text-align: center; padding: 20px 16px; border-radius: 12px; margin-top: 8px; font-size: 16px; font-weight: 700; }
+    .confirm-box.success { background: #1a3a2a; color: #2ecc71; }
+    .confirm-box.error   { background: #3a1a1a; color: #e74c3c; }
+
+    /* INPUT */
+    .input-label { font-size: 12px; color: #8899aa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-wrap { position: relative; margin-bottom: 20px; }
+    .rupee { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #f0b429; font-size: 18px; font-weight: 600; }
+    input[type=number] { width: 100%; background: #0f1923; border: 1px solid #243447; border-radius: 10px; padding: 14px 14px 14px 36px; color: #ffffff; font-size: 20px; font-weight: 600; outline: none; }
+    input[type=number]:focus { border-color: #f0b429; }
+    input[type=number]::placeholder { color: #3a4f63; font-weight: 400; }
+    .risk-row { display: flex; justify-content: space-between; align-items: center; background: #0f1923; border-radius: 10px; padding: 12px 14px; margin-bottom: 20px; }
+    .risk-label { font-size: 13px; color: #8899aa; }
+    .risk-value { font-size: 13px; color: #f0b429; font-weight: 600; }
+
+    /* P&L */
+    .total-card { background: #1a2634; border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid #243447; text-align: center; }
+    .total-label { font-size: 12px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .total-value { font-size: 32px; font-weight: 700; }
+    .total-value.positive { color: #2ecc71; }
+    .total-value.negative { color: #e74c3c; }
+    .total-value.zero     { color: #8899aa; }
+    .trade-card { background: #1a2634; border-radius: 12px; padding: 16px; margin-bottom: 10px; border: 1px solid #243447; }
+    .trade-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .trade-symbol { font-size: 16px; font-weight: 700; }
+    .trade-tf { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; }
+    .tf-intraday { background: #1a3a5c; color: #4da6ff; }
+    .tf-swing    { background: #1a3a2a; color: #4dff91; }
+    .tf-position { background: #3a1a2a; color: #ff4d91; }
+    .trade-row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .trade-label { font-size: 12px; color: #8899aa; }
+    .trade-value { font-size: 12px; font-weight: 600; }
+    .trade-value.green { color: #2ecc71; }
+    .trade-value.red   { color: #e74c3c; }
+    .trade-value.gold  { color: #f0b429; }
+    .pnl-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #243447; }
+    .pnl-label { font-size: 13px; color: #8899aa; }
+    .pnl-value { font-size: 16px; font-weight: 700; }
+    .pnl-value.positive { color: #2ecc71; }
+    .pnl-value.negative { color: #e74c3c; }
+    .pnl-value.zero     { color: #8899aa; }
+    .btn-close { width: 100%; margin-top: 12px; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; background: #f0b429; color: #0f1923; }
+    .close-form { margin-top: 12px; display: none; }
+    .close-input-wrap { position: relative; margin-bottom: 10px; }
+    .rupee-sm { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #f0b429; font-size: 14px; font-weight: 600; }
+    .close-input { width: 100%; background: #0f1923; border: 1px solid #243447; border-radius: 8px; padding: 10px 10px 10px 28px; color: #ffffff; font-size: 16px; font-weight: 600; outline: none; }
+    .close-input:focus { border-color: #f0b429; }
+    .btn-confirm { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; background: #2ecc71; color: #0f1923; }
+    .btn-confirm-done { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; background: #243447; color: #2ecc71; cursor: not-allowed; pointer-events: none; }
+    .close-confirm-msg { display: none; text-align: center; padding: 12px; border-radius: 10px; margin-top: 10px; font-size: 15px; font-weight: 700; background: #1a3a2a; color: #2ecc71; }
+
+    /* SIGNALS LIST */
+    .signal-item { background: #1a2634; border-radius: 12px; padding: 16px; margin-bottom: 10px; border: 1px solid #243447; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .signal-item:active { opacity: 0.8; }
+    .signal-item-left { flex: 1; }
+    .signal-item-sym { font-size: 16px; font-weight: 700; }
+    .signal-item-detail { font-size: 12px; color: #8899aa; margin-top: 4px; }
+    .signal-item-right { text-align: right; }
+    .signal-item-score { font-size: 14px; font-weight: 700; color: #f0b429; }
+    .signal-item-status { font-size: 11px; margin-top: 4px; }
+    .status-taken   { color: #2ecc71; }
+    .status-skipped { color: #e74c3c; }
+    .status-open    { color: #8899aa; }
+
+    /* WELCOME BACK */
+    .welcome-card { background: #1a2634; border-radius: 16px; padding: 28px 24px; border: 1px solid #243447; text-align: center; }
+    .stat-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #243447; }
+    .stat-row:last-of-type { border-bottom: none; }
+    .stat-label { font-size: 13px; color: #8899aa; }
+    .stat-value { font-size: 13px; font-weight: 600; }
+    .stat-value.gold { color: #f0b429; }
+
+    .empty { text-align: center; padding: 16px; color: #3a4f63; font-size: 13px; }
+    .loading { text-align: center; padding: 40px; color: #8899aa; }
+    .hidden { display: none; }
+    .date-label { font-size: 12px; color: #8899aa; margin-bottom: 16px; }
+    .section-header { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-left: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">🔔</div>
+    <div>
+      <div class="brand">Bang-On</div>
+      <div class="tagline">Trade Smart. Win Consistently.</div>
+    </div>
+  </div>
+
+  <div class="loading" id="loadingScreen">Loading...</div>
+  <div class="hidden" id="appContent"></div>
+
+  <script>
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwCobqPswnljz2MLL7v1qyBbNQv5nr8zhc9IiEWniUvLbHMNu4kkWQaG9-nnFSbvLl66A/exec';
+    const tg          = window.Telegram.WebApp;
+    tg.expand();
+
+    const user   = tg.initDataUnsafe?.user;
+    const userID = user?.id ? String(user.id) : 'test_user';
+    const name   = ((user?.first_name || 'Trader') + ' ' + (user?.last_name || '')).trim();
+
+    // ── Read startapp parameter ────────────────────────────────
+    const startParam = tg.initDataUnsafe?.start_param || '';
+
+    // ── Helpers ───────────────────────────────────────────────
+    function fmt(n)    { return '₹' + Math.abs(Number(n)).toLocaleString('en-IN'); }
+    function fmtPnl(n) { return (n >= 0 ? '+' : '-') + '₹' + Math.abs(n).toLocaleString('en-IN'); }
+    function pnlClass(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : 'zero'; }
+    function tfClass(tf) {
+      if (tf === 'INTRADAY') return 'tf-intraday';
+      if (tf === 'SWING')    return 'tf-swing';
+      return 'tf-position';
+    }
+    function show(html) {
+      document.getElementById('loadingScreen').classList.add('hidden');
+      const el = document.getElementById('appContent');
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    // ── ROUTER ────────────────────────────────────────────────
+    window.onload = async function () {
+      if (startParam.startsWith('sig_')) {
+        // Signal page — parse signal data
+        const parts = startParam.replace('sig_', '').split('_');
+        const signal = {
+          id:    parts[0] || 'SIG',
+          sym:   parts[1] || '',
+          tf:    parts[2] || '',
+          entry: parseFloat(parts[3]) || 0,
+          sl:    parseFloat(parts[4]) || 0,
+          t1:    parseFloat(parts[5]) || 0,
+          t2:    parseFloat(parts[6]) || 0,
+          score: parts[7] || ''
+        };
+        await showSignalPage(signal);
+      } else if (startParam === 'pnl') {
+        await showPnlPage();
+      } else if (startParam === 'capital') {
+        await showCapitalPage();
+      } else if (startParam === 'signals') {
+        await showSignalsListPage();
+      } else {
+        await showHomePage();
+      }
+    };
+
+    // ── HOME PAGE ─────────────────────────────────────────────
+    async function showHomePage() {
+      const firstName = name.split(' ')[0];
+      show(`
+        <div class="home-screen">
+          <div class="welcome">Hey ${firstName}! 👋</div>
+          <div class="welcome-sub">What would you like to do?</div>
+          <button class="home-btn btn-signals" onclick="showSignalsListPage()">
+            <span class="home-btn-icon">📊</span>
+            <span class="home-btn-text">
+              <div class="home-btn-title">Today's Signals</div>
+              <div class="home-btn-sub">View signals & take/skip trades</div>
+            </span>
+          </button>
+          <button class="home-btn btn-pnl" onclick="showPnlPage()">
+            <span class="home-btn-icon">📈</span>
+            <span class="home-btn-text">
+              <div class="home-btn-title">My P&L</div>
+              <div class="home-btn-sub">Open, closed & skipped trades</div>
+            </span>
+          </button>
+          <button class="home-btn btn-capital" onclick="showCapitalPage()">
+            <span class="home-btn-icon">💰</span>
+            <span class="home-btn-text">
+              <div class="home-btn-title">My Capital</div>
+              <div class="home-btn-sub">View or update your trading capital</div>
+            </span>
+          </button>
+        </div>
+      `);
+    }
+
+    // ── SIGNALS LIST PAGE ─────────────────────────────────────
+    async function showSignalsListPage() {
+      show('<div class="loading">Loading today\'s signals...</div>');
+      try {
+        const res  = await fetch(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID));
+        const data = await res.json();
+        const signals = data.signals || [];
+
+        if (signals.length === 0) {
+          show(`
+            <button class="btn btn-back" onclick="showHomePage()">← Back</button>
+            <div class="card">
+              <div class="card-title">📊 Today's Signals</div>
+              <div class="empty">No signals fired today yet.<br>Check back during market hours.</div>
+            </div>
+          `);
+          return;
+        }
+
+        const items = signals.map(s => {
+          const userAction = s.userAction || '';
+          const statusClass = userAction === 'TAKE' ? 'status-taken' : userAction === 'SKIP' ? 'status-skipped' : 'status-open';
+          const statusText  = userAction === 'TAKE' ? '✅ Taken' : userAction === 'SKIP' ? '❌ Skipped' : '⏳ Not acted on';
+          return `
+            <div class="signal-item" onclick="showSignalPage(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+              <div class="signal-item-left">
+                <div class="signal-item-sym">${s.sym}</div>
+                <div class="signal-item-detail">${s.tf} · Entry ₹${s.entry} · SL ₹${s.sl}</div>
+              </div>
+              <div class="signal-item-right">
+                <div class="signal-item-score">Score ${s.score}</div>
+                <div class="signal-item-status ${statusClass}">${statusText}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        show(`
+          <button class="btn btn-back" onclick="showHomePage()">← Back</button>
+          <div class="section-header">📊 Today's Active Signals</div>
+          ${items}
+        `);
+      } catch(err) {
+        show('<div class="empty">Failed to load signals. Please try again.</div>');
+      }
+    }
+
+    // ── SIGNAL PAGE ───────────────────────────────────────────
+    async function showSignalPage(signal) {
+      show('<div class="loading">Loading your position...</div>');
+
+      let userCapital = 0;
+      let userFound   = false;
+
+      try {
+        const res  = await fetch(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
+        const data = await res.json();
+        if (data.found) { userCapital = Number(data.capital); userFound = true; }
+      } catch(e) {}
+
+      const riskAmt      = Math.round(userCapital * 0.01);
+      const riskPerShare = signal.entry - signal.sl;
+      const shares       = riskPerShare > 0 && userCapital > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+      const required     = Math.round(shares * signal.entry);
+      const adequate     = userCapital >= required;
+
+      const t2Row = signal.t2 > 0
+        ? `<div class="row"><span class="row-label">Target 2</span><span class="row-value green">${fmt(signal.t2)}</span></div>`
+        : '';
+
+      const positionSection = userFound ? `
+        <div class="card">
+          <div class="section-title">Your Position</div>
+          <div class="row"><span class="row-label">Your Capital</span><span class="row-value gold">${fmt(userCapital)}</span></div>
+          <div class="row"><span class="row-label">Risk Amount (1%)</span><span class="row-value">${fmt(riskAmt)}</span></div>
+          <div class="row"><span class="row-label">Position Size</span><span class="row-value gold">${shares} shares</span></div>
+          <div class="row"><span class="row-label">Capital Required</span><span class="row-value">${fmt(required)}</span></div>
+          <div class="row"><span class="row-label">Capital Status</span><span class="row-value ${adequate ? 'green' : 'red'}">${adequate ? '✅ Sufficient' : '⚠️ Insufficient'}</span></div>
+          <div class="divider"></div>
+          <button class="btn ${adequate ? 'btn-take' : 'btn-disabled'}" id="takeBtn" ${!adequate ? 'disabled' : ''} onclick="logAction('TAKE', '${signal.id}', '${signal.sym}', '${signal.tf}', ${shares}, ${required}, ${signal.entry}, ${signal.sl})">✅ TAKE this Trade</button>
+          <button class="btn btn-skip" id="skipBtn" onclick="logAction('SKIP', '${signal.id}', '${signal.sym}', '${signal.tf}', ${shares}, ${required}, ${signal.entry}, ${signal.sl})">❌ SKIP this Trade</button>
+          <div class="confirm-box" id="confirmBox"></div>
+        </div>
+      ` : `
+        <div class="card">
+          <div class="section-title">Your Position</div>
+          <div class="empty" style="padding:10px 0 4px;">You haven't registered your capital yet.</div>
+          <button class="btn btn-primary" style="margin-top:16px;" onclick="showCapitalPage()">💰 Set My Capital →</button>
+        </div>
+      `;
+
+      show(`
+        <button class="btn btn-back" onclick="showSignalsListPage()">← Back to Signals</button>
+        <div class="card">
+          <div class="signal-header">
+            <div class="symbol">${signal.sym}</div>
+            <div class="badge ${signal.tf === 'INTRADAY' ? 'badge-intraday' : signal.tf === 'SWING' ? 'badge-swing' : 'badge-position'}">${signal.tf}</div>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Signal Score</span>
+            <span class="score-value">${signal.score} / 100</span>
+          </div>
+          <div class="divider"></div>
+          <div class="section-title">Signal Levels</div>
+          <div class="row"><span class="row-label">Entry</span><span class="row-value">${fmt(signal.entry)}</span></div>
+          <div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">${fmt(signal.sl)}</span></div>
+          <div class="row"><span class="row-label">Target 1</span><span class="row-value green">${fmt(signal.t1)}</span></div>
+          ${t2Row}
+        </div>
+        ${positionSection}
+      `);
+    }
+
+    // ── LOG TAKE/SKIP ─────────────────────────────────────────
+    async function logAction(action, sigID, sym, tf, shares, capReq, entry, sl) {
+      const takeBtn = document.getElementById('takeBtn');
+      const skipBtn = document.getElementById('skipBtn');
+      if (takeBtn) { takeBtn.className = 'btn btn-disabled'; takeBtn.disabled = true; takeBtn.textContent = action === 'TAKE' ? '✅ TAKEN' : '✅ TAKE'; }
+      if (skipBtn) { skipBtn.className = 'btn btn-disabled'; skipBtn.disabled = true; skipBtn.textContent = action === 'SKIP' ? '❌ SKIPPED' : '❌ SKIP'; }
+
+      const box = document.getElementById('confirmBox');
+      if (box) { box.style.display = 'block'; box.className = 'confirm-box success'; box.textContent = 'Processing...'; }
+
+      try {
+        const url = WEB_APP_URL
+          + '?action=logAction'
+          + '&userID='   + encodeURIComponent(userID)
+          + '&name='     + encodeURIComponent(name)
+          + '&signalID=' + encodeURIComponent(sigID)
+          + '&symbol='   + encodeURIComponent(sym)
+          + '&tf='       + encodeURIComponent(tf)
+          + '&act='      + action
+          + '&shares='   + shares
+          + '&capReq='   + capReq
+          + '&entry='    + entry
+          + '&sl='       + sl;
+
+        const res  = await fetch(url);
+        const data = await res.json();
+        if (box) {
+          box.textContent = data.success
+            ? (action === 'TAKE' ? '✅ Trade Taken! Good luck with ' + sym + '!' : '❌ Signal Skipped!')
+            : 'Something went wrong. Please try again.';
+          box.className = 'confirm-box ' + (data.success ? 'success' : 'error');
+        }
+      } catch(e) {
+        if (box) { box.textContent = 'Connection error. Please try again.'; box.className = 'confirm-box error'; }
+      }
+    }
+
+    // ── P&L PAGE ──────────────────────────────────────────────
+    async function showPnlPage() {
+      show('<div class="loading">Loading your P&L...</div>');
+      try {
+        const res  = await fetch(WEB_APP_URL + '?action=getUserPnL&userID=' + encodeURIComponent(userID));
+        const data = await res.json();
+
+        const openHTML = data.openTrades && data.openTrades.length > 0
+          ? data.openTrades.map(t => `
+            <div class="trade-card" id="open_${t.sigID}">
+              <div class="trade-header">
+                <span class="trade-symbol">${t.sym}</span>
+                <span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span>
+              </div>
+              <div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">${t.shares} shares</span></div>
+              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${fmt(t.entry)}</span></div>
+              <div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">${t.cmp > 0 ? fmt(t.cmp) : '—'}</span></div>
+              <div class="pnl-row">
+                <span class="pnl-label">Running P&L</span>
+                <span class="pnl-value ${pnlClass(t.pnl)}">${fmtPnl(t.pnl)}</span>
+              </div>
+              <button class="btn-close" id="closeBtn_${t.sigID}" onclick="showCloseForm('${t.sigID}')">📤 Close This Trade</button>
+              <div class="close-form" id="closeForm_${t.sigID}">
+                <div class="close-input-wrap">
+                  <span class="rupee-sm">₹</span>
+                  <input class="close-input" type="number" id="exitInput_${t.sigID}" placeholder="Enter exit price" />
+                </div>
+                <button class="btn-confirm" id="confirmBtn_${t.sigID}" onclick="confirmClose('${t.sigID}', ${t.shares}, ${t.entry})">Confirm Close</button>
+                <div class="close-confirm-msg" id="closeMsg_${t.sigID}"></div>
+              </div>
+            </div>
+          `).join('')
+          : '<div class="empty">No open trades</div>';
+
+        const closedHTML = data.closedTrades && data.closedTrades.length > 0
+          ? data.closedTrades.map(t => `
+            <div class="trade-card">
+              <div class="trade-header">
+                <span class="trade-symbol">${t.sym}</span>
+                <span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span>
+              </div>
+              <div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">${t.shares} shares</span></div>
+              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${fmt(t.entry)}</span></div>
+              <div class="trade-row"><span class="trade-label">Exit</span><span class="trade-value">${fmt(t.exit)}</span></div>
+              <div class="pnl-row">
+                <span class="pnl-label">Booked P&L</span>
+                <span class="pnl-value ${pnlClass(t.pnl)}">${fmtPnl(t.pnl)}</span>
+              </div>
+            </div>
+          `).join('')
+          : '<div class="empty">No closed trades</div>';
+
+        const skippedHTML = data.skippedTrades && data.skippedTrades.length > 0
+          ? data.skippedTrades.map(t => `
+            <div class="trade-card">
+              <div class="trade-header">
+                <span class="trade-symbol">${t.sym}</span>
+                <span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span>
+              </div>
+              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${t.entry > 0 ? fmt(t.entry) : '—'}</span></div>
+              <div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">${t.cmp > 0 ? fmt(t.cmp) : '—'}</span></div>
+              <div class="trade-row"><span class="trade-label">Would have been</span><span class="trade-value gold">${t.wouldShares} shares</span></div>
+              <div class="pnl-row">
+                <span class="pnl-label">Missed P&L</span>
+                <span class="pnl-value ${pnlClass(t.missedPnl)}">${fmtPnl(t.missedPnl)}</span>
+              </div>
+            </div>
+          `).join('')
+          : '<div class="empty">No skipped trades today</div>';
+
+        show(`
+          <button class="btn btn-back" onclick="showHomePage()">← Back</button>
+          <div class="date-label">${data.today || ''}</div>
+          <div class="total-card">
+            <div class="total-label">Total P&L Today</div>
+            <div class="total-value ${pnlClass(data.totalPnl || 0)}">${fmtPnl(data.totalPnl || 0)}</div>
+          </div>
+          <div class="section-header">📂 Open Trades</div>
+          ${openHTML}
+          <div class="section-header" style="margin-top:16px;">✅ Closed Trades</div>
+          ${closedHTML}
+          <div class="section-header" style="margin-top:16px;">❌ Skipped Today</div>
+          ${skippedHTML}
+        `);
+      } catch(e) {
+        show('<div class="empty">Failed to load P&L. Please try again.</div>');
+      }
+    }
+
+    // ── CLOSE TRADE ───────────────────────────────────────────
+    function showCloseForm(sigID) {
+      const form = document.getElementById('closeForm_' + sigID);
+      form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    }
+
+    async function confirmClose(sigID, shares, entry) {
+      const exitPrice = parseFloat(document.getElementById('exitInput_' + sigID).value);
+      if (!exitPrice || exitPrice <= 0) { alert('Please enter a valid exit price'); return; }
+
+      const confirmBtn = document.getElementById('confirmBtn_' + sigID);
+      const closeBtn   = document.getElementById('closeBtn_' + sigID);
+      confirmBtn.className   = 'btn-confirm-done';
+      confirmBtn.textContent = 'Processing...';
+      if (closeBtn) { closeBtn.style.opacity = '0.5'; closeBtn.disabled = true; }
+
+      try {
+        const url = WEB_APP_URL
+          + '?action=closeTrade'
+          + '&userID='    + encodeURIComponent(userID)
+          + '&signalID='  + encodeURIComponent(sigID)
+          + '&exitPrice=' + exitPrice;
+
+        const res  = await fetch(url);
+        const data = await res.json();
+        const msgEl = document.getElementById('closeMsg_' + sigID);
+
+        if (data.success) {
+          const pnl = Math.round(shares * (exitPrice - entry));
+          confirmBtn.textContent = '✅ Trade Closed!';
+          msgEl.textContent      = 'Booked P&L: ' + fmtPnl(pnl);
+          msgEl.style.display    = 'block';
+          setTimeout(() => showPnlPage(), 2000);
+        } else {
+          confirmBtn.className   = 'btn-confirm';
+          confirmBtn.textContent = 'Confirm Close';
+          if (closeBtn) { closeBtn.style.opacity = '1'; closeBtn.disabled = false; }
+          alert('Something went wrong. Please try again.');
+        }
+      } catch(e) {
+        confirmBtn.className   = 'btn-confirm';
+        confirmBtn.textContent = 'Confirm Close';
+        alert('Connection error. Please try again.');
+      }
+    }
+
+    // ── CAPITAL PAGE ──────────────────────────────────────────
+    async function showCapitalPage() {
+      show('<div class="loading">Loading your capital...</div>');
+      try {
+        const res  = await fetch(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
+        const data = await res.json();
+
+        if (data.found) {
+          show(`
+            <button class="btn btn-back" onclick="showHomePage()">← Back</button>
+            <div class="welcome-card">
+              <div style="font-size:36px;margin-bottom:12px;">✅</div>
+              <div class="card-title" style="margin-bottom:20px;">Welcome back, ${name.split(' ')[0]}!</div>
+              <div class="stat-row"><span class="stat-label">Trading Capital</span><span class="stat-value gold">${fmt(data.capital)}</span></div>
+              <div class="stat-row"><span class="stat-label">Risk per Trade</span><span class="stat-value">${fmt(Math.round(data.capital * 0.01))}</span></div>
+              <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value">${data.status || 'Active'}</span></div>
+              <button class="btn btn-primary" style="margin-top:24px;" onclick="showUpdateCapital()">Update Capital</button>
+            </div>
+          `);
+        } else {
+          showUpdateCapital(true);
+        }
+      } catch(e) {
+        showUpdateCapital(true);
+      }
+    }
+
+    function showUpdateCapital(isNew = false) {
+      show(`
+        <button class="btn btn-back" onclick="showHomePage()">← Back</button>
+        <div class="card">
+          <div class="card-title">${isNew ? '👋 Welcome to Bang-On!' : '💰 Update Capital'}</div>
+          <div class="card-sub">${isNew ? 'Enter your trading capital to get personalised position sizes.' : 'Enter your new trading capital.'}</div>
+          <div class="input-label">Your Trading Capital</div>
+          <div class="input-wrap">
+            <span class="rupee">₹</span>
+            <input type="number" id="capitalInput" placeholder="500000" min="10000" oninput="updateRisk()" />
+          </div>
+          <div class="risk-row">
+            <span class="risk-label">Risk per trade (1%)</span>
+            <span class="risk-value" id="riskDisplay">₹0</span>
+          </div>
+          <button class="btn btn-disabled" id="submitBtn" disabled onclick="submitCapital()">
+            ${isNew ? 'Get Started →' : 'Update Capital →'}
+          </button>
+          <div class="confirm-box" id="capitalConfirm"></div>
+        </div>
+      `);
+    }
+
+    function updateRisk() {
+      const val  = parseInt(document.getElementById('capitalInput').value) || 0;
+      const risk = Math.round(val * 0.01);
+      document.getElementById('riskDisplay').textContent = risk > 0 ? '₹' + risk.toLocaleString('en-IN') : '₹0';
+      const btn = document.getElementById('submitBtn');
+      if (val >= 10000) { btn.className = 'btn btn-primary'; btn.disabled = false; }
+      else              { btn.className = 'btn btn-disabled'; btn.disabled = true; }
+    }
+
+    async function submitCapital() {
+      const capital = parseInt(document.getElementById('capitalInput').value);
+      if (!capital || capital < 10000) return;
+
+      const btn = document.getElementById('submitBtn');
+      btn.textContent = 'Saving...';
+      btn.disabled    = true;
+      btn.className   = 'btn btn-disabled';
+
+      try {
+        const url = WEB_APP_URL
+          + '?action=registerUser'
+          + '&userID='  + encodeURIComponent(userID)
+          + '&name='    + encodeURIComponent(name)
+          + '&capital=' + capital;
+
+        const res  = await fetch(url);
+        const data = await res.json();
+        const box  = document.getElementById('capitalConfirm');
+
+        if (data.success) {
+          box.style.display = 'block';
+          box.className     = 'confirm-box success';
+          box.textContent   = '✅ Capital saved! ₹' + capital.toLocaleString('en-IN');
+          setTimeout(() => showHomePage(), 1500);
+        } else {
+          box.style.display = 'block';
+          box.className     = 'confirm-box error';
+          box.textContent   = 'Something went wrong. Please try again.';
+          btn.className     = 'btn btn-primary';
+          btn.disabled      = false;
+          btn.textContent   = 'Try Again';
+        }
+      } catch(e) {
+        const box = document.getElementById('capitalConfirm');
+        box.style.display = 'block';
+        box.className     = 'confirm-box error';
+        box.textContent   = 'Connection error. Please try again.';
+      }
+    }
+  </script>
+</body>
+</html>
