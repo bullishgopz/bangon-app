@@ -58,12 +58,19 @@
     .btn-take     { background: #2ecc71; color: #0f1923; }
     .btn-skip     { background: #243447; color: #8899aa; }
     .btn-primary  { background: #f0b429; color: #0f1923; }
+    .btn-tg       { background: #229ED9; color: #ffffff; }
     .btn-disabled { background: #243447; color: #3a4f63; cursor: not-allowed; pointer-events: none; }
     .btn-back     { background: transparent; border: 1px solid #243447; color: #8899aa; margin-bottom: 16px; padding: 10px; font-size: 13px; width: 100%; border-radius: 10px; cursor: pointer; }
 
     .confirm-box { display: none; text-align: center; padding: 20px 16px; border-radius: 12px; margin-top: 8px; font-size: 16px; font-weight: 700; }
     .confirm-box.success { background: #1a3a2a; color: #2ecc71; }
     .confirm-box.error   { background: #3a1a1a; color: #e74c3c; }
+
+    /* Browser redirect card */
+    .redirect-card { background: #1a2634; border-radius: 16px; padding: 24px 20px; margin-bottom: 16px; border: 1px solid #243447; text-align: center; }
+    .redirect-icon { font-size: 40px; margin-bottom: 12px; }
+    .redirect-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .redirect-sub { font-size: 13px; color: #8899aa; line-height: 1.6; margin-bottom: 20px; }
 
     .input-label { font-size: 12px; color: #8899aa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
     .input-wrap { position: relative; margin-bottom: 20px; }
@@ -156,13 +163,22 @@
 
   <script>
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwCobqPswnljz2MLL7v1qyBbNQv5nr8zhc9IiEWniUvLbHMNu4kkWQaG9-nnFSbvLl66A/exec';
-    const tg          = window.Telegram.WebApp;
-    tg.expand();
+    const BOT_USERNAME = 'ace_gopal_scanner_bot';
+    const APP_NAME     = 'bangon_app';
 
-    const user   = tg.initDataUnsafe?.user;
-    const userID = user?.id ? String(user.id) : 'test_user';
-    const name   = ((user?.first_name || 'Trader') + ' ' + (user?.last_name || '')).trim();
+    const tg         = window.Telegram.WebApp;
+    const isInTG     = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (isInTG) tg.expand();
+
+    const user       = tg.initDataUnsafe?.user;
+    const userID     = user?.id ? String(user.id) : null;
+    const name       = userID ? ((user?.first_name || 'Trader') + ' ' + (user?.last_name || '')).trim() : 'Trader';
     const startParam = tg.initDataUnsafe?.start_param || '';
+
+    // URL params (for browser access from group button)
+    const urlParams  = new URLSearchParams(window.location.search);
+    const sigParam   = urlParams.get('sig');
+    const pnlParam   = urlParams.get('pnl');
 
     function fmt(n)      { return '₹' + Math.abs(Number(n)).toLocaleString('en-IN'); }
     function fmtPnl(n)   { return (n >= 0 ? '+' : '-') + '₹' + Math.abs(n).toLocaleString('en-IN'); }
@@ -177,28 +193,128 @@
       el.classList.remove('hidden');
     }
 
+    function parseSigParam(raw) {
+      const parts = raw.split('_');
+      return {
+        id:    parts[0] + '_' + parts[1],
+        sym:   parts[0] || '',
+        tf:    parts[1] || '',
+        entry: parseFloat(parts[2]) || 0,
+        sl:    parseFloat(parts[3]) || 0,
+        t1:    parseFloat(parts[4]) || 0,
+        t2:    parseFloat(parts[5]) || 0,
+        score: parts[6] || '',
+        userAction: ''
+      };
+    }
+
     // ── ROUTER ────────────────────────────────────────────────
     window.onload = async function () {
+
+      // ── BROWSER ACCESS (from group button) ──────────────────
+      if (!isInTG) {
+        if (sigParam) {
+          showBrowserSignalPreview(parseSigParam(sigParam));
+        } else if (pnlParam) {
+          showBrowserPnlRedirect();
+        } else {
+          showBrowserHome();
+        }
+        return;
+      }
+
+      // ── INSIDE TELEGRAM ─────────────────────────────────────
       if (startParam.startsWith('sig_')) {
-        const parts = startParam.replace('sig_', '').split('_');
-        await showSignalPage({
-          id:         parts[0] + '_' + parts[1],
-          sym:        parts[0] || '',
-          tf:         parts[1] || '',
-          entry:      parseFloat(parts[2]) || 0,
-          sl:         parseFloat(parts[3]) || 0,
-          t1:         parseFloat(parts[4]) || 0,
-          t2:         parseFloat(parts[5]) || 0,
-          score:      parts[6] || '',
-          userAction: ''
-        });
-      } else if (startParam === 'pnl')      { await showPnlPage(); }
-      else if (startParam === 'capital')    { await showCapitalPage(); }
-      else if (startParam === 'signals')    { await showSignalsListPage(); }
-      else                                  { await showHomePage(); }
+        await showSignalPage(parseSigParam(startParam.replace('sig_', '')));
+      } else if (startParam === 'pnl')    { await showPnlPage(); }
+      else if (startParam === 'capital')  { await showCapitalPage(); }
+      else if (startParam === 'signals')  { await showSignalsListPage(); }
+      else                                { await showHomePage(); }
     };
 
-    // ── HOME ──────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════
+    // BROWSER SCREENS — shown when opened outside Telegram
+    // ════════════════════════════════════════════════════════
+
+    function showBrowserSignalPreview(signal) {
+      const startParam = 'sig_' + signal.sym + '_' + signal.tf + '_' + signal.entry + '_' + signal.sl + '_' + signal.t1 + '_' + signal.t2 + '_' + signal.score;
+      const tgLink     = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=' + encodeURIComponent(startParam);
+      const t2Row      = signal.t2 > 0 ? `<div class="row"><span class="row-label">Target 2</span><span class="row-value green">${fmt(signal.t2)}</span></div>` : '';
+
+      show(`
+        <div class="card">
+          <div class="signal-header">
+            <div class="symbol">${signal.sym}</div>
+            <div class="badge ${badgeClass(signal.tf)}">${signal.tf}</div>
+          </div>
+          <div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">${signal.score} / 100</span></div>
+          <div class="divider"></div>
+          <div class="section-title">Signal Levels</div>
+          <div class="row"><span class="row-label">Entry</span><span class="row-value">${fmt(signal.entry)}</span></div>
+          <div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">${fmt(signal.sl)}</span></div>
+          <div class="row"><span class="row-label">Target 1</span><span class="row-value green">${fmt(signal.t1)}</span></div>
+          ${t2Row}
+        </div>
+        <div class="redirect-card">
+          <div class="redirect-icon">🎯</div>
+          <div class="redirect-title">See Your Personal Position Size</div>
+          <div class="redirect-sub">
+            Tap below to open Bang-On in Telegram.<br>
+            You'll see your exact position size,<br>
+            capital required, and TAKE or SKIP.
+          </div>
+          <a href="${tgLink}" style="text-decoration:none;">
+            <button class="btn btn-tg">📊 Open in Telegram Bot</button>
+          </a>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#3a4f63;margin-top:8px;">
+          🔒 Your capital and position data stay private
+        </div>
+      `);
+    }
+
+    function showBrowserPnlRedirect() {
+      const tgLink = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=pnl';
+      show(`
+        <div class="redirect-card">
+          <div class="redirect-icon">📈</div>
+          <div class="redirect-title">View Your Personal P&L</div>
+          <div class="redirect-sub">
+            Your P&L dashboard is private and<br>
+            only available inside Telegram.<br>
+            Tap below to open it.
+          </div>
+          <a href="${tgLink}" style="text-decoration:none;">
+            <button class="btn btn-tg">📈 Open My P&L in Telegram</button>
+          </a>
+        </div>
+      `);
+    }
+
+    function showBrowserHome() {
+      const tgLink = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME;
+      show(`
+        <div class="home-screen">
+          <div style="font-size:48px;margin-bottom:16px;">🔔</div>
+          <div class="welcome">Bang-On Personal</div>
+          <div class="welcome-sub" style="margin-bottom:32px;">Your personal trading dashboard</div>
+          <div class="redirect-card" style="width:100%;max-width:360px;">
+            <div class="redirect-sub">
+              Bang-On Personal works inside Telegram.<br>
+              Tap below to open your dashboard.
+            </div>
+            <a href="${tgLink}" style="text-decoration:none;">
+              <button class="btn btn-tg">📊 Open in Telegram</button>
+            </a>
+          </div>
+        </div>
+      `);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // TELEGRAM SCREENS — full personal experience
+    // ════════════════════════════════════════════════════════
+
     async function showHomePage() {
       show(`
         <div class="home-screen">
@@ -220,7 +336,6 @@
       `);
     }
 
-    // ── SIGNALS LIST ──────────────────────────────────────────
     async function showSignalsListPage() {
       show('<div class="loading">Loading today\'s signals...</div>');
       try {
@@ -264,12 +379,11 @@
       try { showSignalPage(JSON.parse(decodeURIComponent(encoded))); } catch(e) {}
     }
 
-    // ── SIGNAL PAGE ───────────────────────────────────────────
     async function showSignalPage(signal) {
       show('<div class="loading">Loading your position...</div>');
 
       let userCapital = 0, userFound = false;
-      let userAction  = signal.userAction || '';
+      const userAction = signal.userAction || '';
 
       try {
         const res  = await fetch(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
@@ -336,7 +450,6 @@
       `);
     }
 
-    // ── LOG TAKE/SKIP ─────────────────────────────────────────
     async function logAction(action, sigID, sym, tf, shares, capReq, entry, sl) {
       const takeBtn = document.getElementById('takeBtn');
       const skipBtn = document.getElementById('skipBtn');
@@ -353,7 +466,6 @@
       }
     }
 
-    // ── P&L PAGE ──────────────────────────────────────────────
     async function showPnlPage() {
       show('<div class="loading">Loading your P&L...</div>');
       try {
@@ -425,8 +537,8 @@
       confirmBtn.className = 'btn-confirm-done'; confirmBtn.textContent = 'Processing...';
       if (closeBtn) { closeBtn.style.opacity = '0.5'; closeBtn.disabled = true; }
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=closeTrade&userID=' + encodeURIComponent(userID) + '&signalID=' + encodeURIComponent(sigID) + '&exitPrice=' + exitPrice);
-        const data = await res.json();
+        const res   = await fetch(WEB_APP_URL + '?action=closeTrade&userID=' + encodeURIComponent(userID) + '&signalID=' + encodeURIComponent(sigID) + '&exitPrice=' + exitPrice);
+        const data  = await res.json();
         const msgEl = document.getElementById('closeMsg_' + sigID);
         if (data.success) {
           confirmBtn.textContent = '✅ Trade Closed!';
@@ -443,7 +555,6 @@
       }
     }
 
-    // ── CAPITAL PAGE ──────────────────────────────────────────
     async function showCapitalPage() {
       show('<div class="loading">Loading your capital...</div>');
       try {
