@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bang-On Personal</title>
+  <title>Bang-On Personal v3</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -136,11 +136,14 @@
     .error-title { font-size: 15px; font-weight: 700; color: #e74c3c; margin-bottom: 8px; }
     .error-msg { font-size: 12px; color: #8899aa; line-height: 1.6; margin-bottom: 16px; }
     .btn-retry { background: #f0b429; color: #0f1923; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .pnl-topbar { display: flex; gap: 10px; margin-bottom: 16px; }
+    .pnl-topbar .btn-back { margin-bottom: 0; flex: 1; }
+    .btn-refresh { background: transparent; border: 1px solid #243447; color: #f0b429; padding: 10px 16px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer; white-space: nowrap; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="logo">🔔</div>
+    <div class="logo">&#128276;</div>
     <div>
       <div class="brand">Bang-On</div>
       <div class="tagline">Trade Smart. Win Consistently.</div>
@@ -154,6 +157,7 @@
     var WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwCobqPswnljz2MLL7v1qyBbNQv5nr8zhc9IiEWniUvLbHMNu4kkWQaG9-nnFSbvLl66A/exec';
     var BOT_USERNAME = 'ace_gopal_scanner_bot';
     var APP_NAME     = 'bangon';
+    var RUPEE        = '\u20B9';
 
     var tg         = window.Telegram.WebApp;
     var isInTG     = !!(tg.initDataUnsafe && tg.initDataUnsafe.user);
@@ -170,7 +174,6 @@
     var sigParam   = urlParams.get('sig');
     var pnlParam   = urlParams.get('pnl');
 
-    // ── Fetch with 10-second timeout ──────────────────────────
     function fetchWithTimeout(url, ms) {
       ms = ms || 10000;
       var controller = new AbortController();
@@ -179,14 +182,9 @@
         .then(function(r) { clearTimeout(timer); return r; })
         .catch(function(err) {
           clearTimeout(timer);
-          if (err.name === 'AbortError') throw new Error('Request timed out — check your internet connection.');
+          if (err.name === 'AbortError') throw new Error('Request timed out. Check your internet connection.');
           throw err;
         });
-    }
-
-    function showError(title, message, retryFn) {
-      var retryBtn = retryFn ? '<button class="btn-retry" onclick="' + retryFn + '">Try Again</button>' : '';
-      show('<div class="error-card"><div class="error-icon">Warning</div><div class="error-title">' + title + '</div><div class="error-msg">' + message + '</div>' + retryBtn + '</div>');
     }
 
     function makeTgLink(startapp) {
@@ -198,8 +196,8 @@
       window.location.href = makeTgLink(startapp);
     }
 
-    function fmt(n)      { return 'Rs.' + Math.abs(Number(n)).toLocaleString('en-IN'); }
-    function fmtPnl(n)   { return (n >= 0 ? '+' : '-') + 'Rs.' + Math.abs(n).toLocaleString('en-IN'); }
+    function fmt(n)      { return RUPEE + Math.abs(Number(n)).toLocaleString('en-IN'); }
+    function fmtPnl(n)   { return (n >= 0 ? '+' : '-') + RUPEE + Math.abs(n).toLocaleString('en-IN'); }
     function pnlClass(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : 'zero'; }
     function tfClass(tf) { return tf === 'INTRADAY' ? 'tf-intraday' : tf === 'SWING' ? 'tf-swing' : 'tf-position'; }
     function badgeClass(tf) { return tf === 'INTRADAY' ? 'badge-intraday' : tf === 'SWING' ? 'badge-swing' : 'badge-position'; }
@@ -211,7 +209,6 @@
       el.classList.remove('hidden');
     }
 
-    // ── Prices encoded as integers x100 in signal button URL ──
     function parseSigParam(raw) {
       var parts = raw.split('_');
       return {
@@ -227,10 +224,9 @@
       };
     }
 
-    // ── ROUTER ────────────────────────────────────────────────
     window.onload = async function () {
       if (isInTG && !userID) {
-        show('<div class="error-card"><div class="error-icon">!</div><div class="error-title">Could Not Identify You</div><div class="error-msg">Telegram did not share your user ID. Please close and reopen from the Bang-On group.</div></div>');
+        show('<div class="error-card"><div class="error-icon">&#9888;</div><div class="error-title">Could Not Identify You</div><div class="error-msg">Telegram did not share your user ID. Please close and reopen from the Bang-On group.</div></div>');
         return;
       }
       if (!isInTG) {
@@ -246,7 +242,7 @@
         else if (startParam === 'signals')  await showSignalsListPage();
         else                                await showHomePage();
       } catch(e) {
-        show('<div class="error-card"><div class="error-icon">!</div><div class="error-title">Something went wrong</div><div class="error-msg">' + (e.message || 'Unknown error') + '<br><br>Please close and reopen the app.</div></div>');
+        show('<div class="error-card"><div class="error-icon">&#9888;</div><div class="error-title">Something went wrong</div><div class="error-msg">' + (e.message || 'Unknown error') + '<br><br>Please close and reopen the app.</div></div>');
       }
     };
 
@@ -272,22 +268,22 @@
           t2Row +
         '</div>' +
         '<div class="redirect-card">' +
-          '<div class="redirect-icon">Target</div>' +
+          '<div class="redirect-icon">&#127919;</div>' +
           '<div class="redirect-title">See Your Personal Position Size</div>' +
-          '<div class="redirect-sub">Tap below to open Bang-On in Telegram. You\'ll see your exact position size, capital required, and TAKE or SKIP.</div>' +
-          '<button class="btn-tg" onclick="openTelegram(\'' + startapp + '\')">Open in Telegram</button>' +
+          '<div class="redirect-sub">Tap below to open Bang-On in Telegram.<br>You\'ll see your exact position size,<br>capital required, and TAKE or SKIP.</div>' +
+          '<button class="btn-tg" onclick="openTelegram(\'' + startapp + '\')">&#128202; Open in Telegram</button>' +
         '</div>' +
-        '<div style="text-align:center;font-size:11px;color:#3a4f63;margin-top:8px;">Your capital and position data stay private</div>'
+        '<div style="text-align:center;font-size:11px;color:#3a4f63;margin-top:8px;">&#128274; Your capital and position data stay private</div>'
       );
     }
 
     function showBrowserPnlRedirect() {
       show(
         '<div class="redirect-card">' +
-          '<div class="redirect-icon">Chart</div>' +
-          '<div class="redirect-title">View Your Personal P&L</div>' +
-          '<div class="redirect-sub">Your P&L dashboard is private and only available inside Telegram. Tap below to open it.</div>' +
-          '<button class="btn-tg" onclick="openTelegram(\'pnl\')">Open My P&L in Telegram</button>' +
+          '<div class="redirect-icon">&#128200;</div>' +
+          '<div class="redirect-title">View Your Personal P&amp;L</div>' +
+          '<div class="redirect-sub">Your P&amp;L dashboard is private and<br>only available inside Telegram.<br>Tap below to open it.</div>' +
+          '<button class="btn-tg" onclick="openTelegram(\'pnl\')">&#128200; Open My P&amp;L in Telegram</button>' +
         '</div>'
       );
     }
@@ -295,12 +291,12 @@
     function showBrowserHome() {
       show(
         '<div class="home-screen">' +
-          '<div style="font-size:48px;margin-bottom:16px;">Bell</div>' +
+          '<div style="font-size:48px;margin-bottom:16px;">&#128276;</div>' +
           '<div class="welcome">Bang-On Personal</div>' +
           '<div class="welcome-sub" style="margin-bottom:32px;">Your personal trading dashboard</div>' +
           '<div class="redirect-card" style="width:100%;max-width:360px;">' +
-            '<div class="redirect-sub">Bang-On Personal works inside Telegram. Tap below to open your dashboard.</div>' +
-            '<button class="btn-tg" onclick="openTelegram(\'\')">Open in Telegram</button>' +
+            '<div class="redirect-sub">Bang-On Personal works inside Telegram.<br>Tap below to open your dashboard.</div>' +
+            '<button class="btn-tg" onclick="openTelegram(\'\')">&#128202; Open in Telegram</button>' +
           '</div>' +
         '</div>'
       );
@@ -313,18 +309,18 @@
     async function showHomePage() {
       show(
         '<div class="home-screen">' +
-          '<div class="welcome">Hey ' + name.split(' ')[0] + '!</div>' +
+          '<div class="welcome">Hey ' + name.split(' ')[0] + '! &#128075;</div>' +
           '<div class="welcome-sub">What would you like to do?</div>' +
           '<button class="home-btn btn-signals" onclick="showSignalsListPage()">' +
-            '<span class="home-btn-icon">Chart</span>' +
-            '<span><div class="home-btn-title">Today\'s Signals</div><div class="home-btn-sub">View signals and take/skip trades</div></span>' +
+            '<span class="home-btn-icon">&#128202;</span>' +
+            '<span><div class="home-btn-title">Today\'s Signals</div><div class="home-btn-sub">View signals &amp; take/skip trades</div></span>' +
           '</button>' +
           '<button class="home-btn btn-pnl" onclick="showPnlPage()">' +
-            '<span class="home-btn-icon">Money</span>' +
-            '<span><div class="home-btn-title">My P&L</div><div class="home-btn-sub">Open, closed and skipped trades</div></span>' +
+            '<span class="home-btn-icon">&#128200;</span>' +
+            '<span><div class="home-btn-title">My P&amp;L</div><div class="home-btn-sub">Open, closed &amp; skipped trades</div></span>' +
           '</button>' +
           '<button class="home-btn btn-capital" onclick="showCapitalPage()">' +
-            '<span class="home-btn-icon">Cash</span>' +
+            '<span class="home-btn-icon">&#128176;</span>' +
             '<span><div class="home-btn-title">My Capital</div><div class="home-btn-sub">View or update your trading capital</div></span>' +
           '</button>' +
         '</div>'
@@ -339,22 +335,22 @@
         var signals = data.signals || [];
         if (signals.length === 0) {
           show(
-            '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-            '<div class="card"><div class="card-title">Today\'s Signals</div>' +
-            '<div class="empty">No signals fired today yet. Check back during market hours.</div></div>'
+            '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+            '<div class="card"><div class="card-title">&#128202; Today\'s Signals</div>' +
+            '<div class="empty">No signals fired today yet.<br>Check back during market hours.</div></div>'
           );
           return;
         }
         var items = signals.map(function(s) {
           var ua          = s.userAction || '';
           var statusClass = ua === 'TAKE' ? 'status-taken' : ua === 'SKIP' ? 'status-skipped' : 'status-open';
-          var statusText  = ua === 'TAKE' ? 'Taken' : ua === 'SKIP' ? 'Skipped' : 'Not acted on';
+          var statusText  = ua === 'TAKE' ? '&#9989; Taken' : ua === 'SKIP' ? '&#10060; Skipped' : '&#9203; Not acted on';
           var encoded     = encodeURIComponent(JSON.stringify(s));
           return (
             '<div class="signal-item" onclick="openSignalFromList(\'' + encoded + '\')">' +
               '<div class="signal-item-left">' +
                 '<div class="signal-item-sym">' + s.sym + '</div>' +
-                '<div class="signal-item-detail">' + s.tf + ' | Entry Rs.' + Number(s.entry).toLocaleString('en-IN') + ' | SL Rs.' + Number(s.sl).toLocaleString('en-IN') + '</div>' +
+                '<div class="signal-item-detail">' + s.tf + ' &middot; Entry ' + RUPEE + Number(s.entry).toLocaleString('en-IN') + ' &middot; SL ' + RUPEE + Number(s.sl).toLocaleString('en-IN') + '</div>' +
               '</div>' +
               '<div class="signal-item-right">' +
                 '<div class="signal-item-score">Score ' + s.score + '</div>' +
@@ -364,16 +360,16 @@
           );
         }).join('');
         show(
-          '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-          '<div class="section-header">Today\'s Active Signals</div>' + items
+          '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+          '<div class="section-header">&#128202; Today\'s Active Signals</div>' + items
         );
       } catch(e) {
         show(
-          '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-          '<div class="error-card"><div class="error-icon">!</div>' +
+          '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+          '<div class="error-card"><div class="error-icon">&#9888;</div>' +
           '<div class="error-title">Could Not Load Signals</div>' +
           '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
-          '<button class="btn-retry" onclick="showSignalsListPage()">Try Again</button></div>'
+          '<button class="btn-retry" onclick="showSignalsListPage()">&#8635; Try Again</button></div>'
         );
       }
     }
@@ -393,11 +389,11 @@
         if (data.found) { userCapital = Number(data.capital); userFound = true; }
       } catch(e) {
         show(
-          '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-          '<div class="error-card"><div class="error-icon">!</div>' +
+          '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+          '<div class="error-card"><div class="error-icon">&#9888;</div>' +
           '<div class="error-title">Could Not Load Your Data</div>' +
           '<div class="error-msg">' + (e.message || 'Connection failed. Check your internet and try again.') + '</div>' +
-          '<button class="btn-retry" onclick="showSignalPage_retry()">Try Again</button></div>'
+          '<button class="btn-retry" onclick="showSignalPage_retry()">&#8635; Try Again</button></div>'
         );
         window._retrySignal = signal;
         return;
@@ -414,8 +410,8 @@
       if (!userFound) {
         actionSection =
           '<div class="card"><div class="section-title">Your Position</div>' +
-          '<div class="empty" style="padding:10px 0 4px;">You have not registered your capital yet.</div>' +
-          '<button class="btn btn-primary" style="margin-top:16px;" onclick="showCapitalPage()">Set My Capital</button></div>';
+          '<div class="empty" style="padding:10px 0 4px;">You haven\'t registered your capital yet.</div>' +
+          '<button class="btn btn-primary" style="margin-top:16px;" onclick="showCapitalPage()">&#128176; Set My Capital</button></div>';
       } else if (userAction === 'TAKE') {
         actionSection =
           '<div class="card"><div class="section-title">Your Position</div>' +
@@ -423,14 +419,14 @@
           '<div class="row"><span class="row-label">Position Size</span><span class="row-value gold">' + shares + ' shares</span></div>' +
           '<div class="row"><span class="row-label">Capital Required</span><span class="row-value">' + fmt(required) + '</span></div>' +
           '<div class="divider"></div>' +
-          '<div class="action-taken">You have taken this trade</div>' +
-          '<button class="btn btn-primary" onclick="showPnlPage()">View My P&L</button></div>';
+          '<div class="action-taken">&#9989; You have taken this trade</div>' +
+          '<button class="btn btn-primary" onclick="showPnlPage()">&#128200; View My P&amp;L</button></div>';
       } else if (userAction === 'SKIP') {
         actionSection =
           '<div class="card"><div class="section-title">Your Position</div>' +
           '<div class="row"><span class="row-label">Would have been</span><span class="row-value gold">' + shares + ' shares</span></div>' +
           '<div class="divider"></div>' +
-          '<div class="action-skipped">You skipped this signal</div></div>';
+          '<div class="action-skipped">&#10060; You skipped this signal</div></div>';
       } else {
         actionSection =
           '<div class="card"><div class="section-title">Your Position</div>' +
@@ -438,17 +434,17 @@
           '<div class="row"><span class="row-label">Risk Amount (1%)</span><span class="row-value">' + fmt(riskAmt) + '</span></div>' +
           '<div class="row"><span class="row-label">Position Size</span><span class="row-value gold">' + shares + ' shares</span></div>' +
           '<div class="row"><span class="row-label">Capital Required</span><span class="row-value">' + fmt(required) + '</span></div>' +
-          '<div class="row"><span class="row-label">Capital Status</span><span class="row-value ' + (adequate ? 'green' : 'red') + '">' + (adequate ? 'Sufficient' : 'Insufficient') + '</span></div>' +
+          '<div class="row"><span class="row-label">Capital Status</span><span class="row-value ' + (adequate ? 'green' : 'red') + '">' + (adequate ? '&#9989; Sufficient' : '&#9888; Insufficient') + '</span></div>' +
           '<div class="divider"></div>' +
           '<button class="btn ' + (adequate ? 'btn-take' : 'btn-disabled') + '" id="takeBtn" ' + (!adequate ? 'disabled' : '') +
-            ' onclick="logAction(\'TAKE\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">TAKE this Trade</button>' +
+            ' onclick="logAction(\'TAKE\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">&#9989; TAKE this Trade</button>' +
           '<button class="btn btn-skip" id="skipBtn"' +
-            ' onclick="logAction(\'SKIP\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">SKIP this Trade</button>' +
+            ' onclick="logAction(\'SKIP\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">&#10060; SKIP this Trade</button>' +
           '<div class="confirm-box" id="confirmBox"></div></div>';
       }
 
       show(
-        '<button class="btn-back" onclick="showSignalsListPage()">Back to Signals</button>' +
+        '<button class="btn-back" onclick="showSignalsListPage()">&#8592; Back to Signals</button>' +
         '<div class="card">' +
           '<div class="signal-header"><div class="symbol">' + signal.sym + '</div><div class="badge ' + badgeClass(signal.tf) + '">' + signal.tf + '</div></div>' +
           '<div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">' + signal.score + ' / 100</span></div>' +
@@ -487,20 +483,19 @@
     }
 
     async function showPnlPage() {
-      show('<div class="loading">Loading your P&L...</div>');
+      show('<div class="loading">Loading your P&amp;L...</div>');
       try {
         var res  = await fetchWithTimeout(WEB_APP_URL + '?action=getUserPnL&userID=' + encodeURIComponent(userID));
         var data = await res.json();
 
-        // ── Unregistered user — redirect to capital registration ──
         if (!data.found) {
           show(
-            '<button class="btn-back" onclick="showHomePage()">Back</button>' +
+            '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
             '<div class="redirect-card">' +
-              '<div class="redirect-icon">Cash</div>' +
+              '<div class="redirect-icon">&#128176;</div>' +
               '<div class="redirect-title">Register Your Capital First</div>' +
-              '<div class="redirect-sub">You need to set your trading capital before you can view your P&L.</div>' +
-              '<button class="btn btn-primary" onclick="showCapitalPage()">Set My Capital</button>' +
+              '<div class="redirect-sub">You need to set your trading capital before you can view your P&amp;L.</div>' +
+              '<button class="btn btn-primary" onclick="showCapitalPage()">&#128176; Set My Capital</button>' +
             '</div>'
           );
           return;
@@ -513,11 +508,11 @@
                   '<div class="trade-header"><span class="trade-symbol">' + t.sym + '</span><span class="trade-tf ' + tfClass(t.tf) + '">' + t.tf + '</span></div>' +
                   '<div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">' + t.shares + ' shares</span></div>' +
                   '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + fmt(t.entry) + '</span></div>' +
-                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '--') + '</span></div>' +
-                  '<div class="pnl-row"><span class="pnl-label">Running P&L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
-                  '<button class="btn-close" id="closeBtn_' + t.sigID + '" onclick="showCloseForm(\'' + t.sigID + '\')">Close This Trade</button>' +
+                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '&#8212;') + '</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Running P&amp;L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
+                  '<button class="btn-close" id="closeBtn_' + t.sigID + '" onclick="showCloseForm(\'' + t.sigID + '\')">&#128228; Close This Trade</button>' +
                   '<div class="close-form" id="closeForm_' + t.sigID + '">' +
-                    '<div class="close-input-wrap"><span class="rupee-sm">Rs.</span><input class="close-input" type="number" id="exitInput_' + t.sigID + '" placeholder="Enter exit price" /></div>' +
+                    '<div class="close-input-wrap"><span class="rupee-sm">' + RUPEE + '</span><input class="close-input" type="number" id="exitInput_' + t.sigID + '" placeholder="Enter exit price" /></div>' +
                     '<button class="btn-confirm" id="confirmBtn_' + t.sigID + '" onclick="confirmClose(\'' + t.sigID + '\',' + t.shares + ',' + t.entry + ')">Confirm Close</button>' +
                     '<div class="close-confirm-msg" id="closeMsg_' + t.sigID + '"></div>' +
                   '</div>' +
@@ -534,7 +529,7 @@
                   '<div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">' + t.shares + ' shares</span></div>' +
                   '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + fmt(t.entry) + '</span></div>' +
                   '<div class="trade-row"><span class="trade-label">Exit</span><span class="trade-value">' + fmt(t.exit) + '</span></div>' +
-                  '<div class="pnl-row"><span class="pnl-label">Booked P&L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Booked P&amp;L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
                 '</div>'
               );
             }).join('')
@@ -545,33 +540,33 @@
               return (
                 '<div class="trade-card">' +
                   '<div class="trade-header"><span class="trade-symbol">' + t.sym + '</span><span class="trade-tf ' + tfClass(t.tf) + '">' + t.tf + '</span></div>' +
-                  '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + (t.entry > 0 ? fmt(t.entry) : '--') + '</span></div>' +
-                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '--') + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + (t.entry > 0 ? fmt(t.entry) : '&#8212;') + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '&#8212;') + '</span></div>' +
                   '<div class="trade-row"><span class="trade-label">Would have been</span><span class="trade-value gold">' + t.wouldShares + ' shares</span></div>' +
-                  '<div class="pnl-row"><span class="pnl-label">Missed P&L</span><span class="pnl-value ' + pnlClass(t.missedPnl) + '">' + fmtPnl(t.missedPnl) + '</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Missed P&amp;L</span><span class="pnl-value ' + pnlClass(t.missedPnl) + '">' + fmtPnl(t.missedPnl) + '</span></div>' +
                 '</div>'
               );
             }).join('')
           : '<div class="empty">No skipped trades today</div>';
 
         show(
-          '<div style="display:flex;gap:10px;margin-bottom:16px;">' +
-            '<button class="btn-back" style="margin-bottom:0;flex:1;" onclick="showHomePage()">Back</button>' +
-            '<button class="btn-back" style="margin-bottom:0;width:auto;padding:10px 16px;" onclick="showPnlPage()">&#8635; Refresh</button>' +
+          '<div class="pnl-topbar">' +
+            '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+            '<button class="btn-refresh" onclick="showPnlPage()">&#8635; Refresh</button>' +
           '</div>' +
           '<div class="date-label">' + (data.today || '') + '</div>' +
-          '<div class="total-card"><div class="total-label">Total P&L Today</div><div class="total-value ' + pnlClass(data.totalPnl || 0) + '">' + fmtPnl(data.totalPnl || 0) + '</div></div>' +
-          '<div class="section-header">Open Trades</div>' + openHTML +
-          '<div class="section-header" style="margin-top:16px;">Closed Trades</div>' + closedHTML +
-          '<div class="section-header" style="margin-top:16px;">Skipped Today</div>' + skippedHTML
+          '<div class="total-card"><div class="total-label">Total P&amp;L Today</div><div class="total-value ' + pnlClass(data.totalPnl || 0) + '">' + fmtPnl(data.totalPnl || 0) + '</div></div>' +
+          '<div class="section-header">&#128194; Open Trades</div>' + openHTML +
+          '<div class="section-header" style="margin-top:16px;">&#9989; Closed Trades</div>' + closedHTML +
+          '<div class="section-header" style="margin-top:16px;">&#10060; Skipped Today</div>' + skippedHTML
         );
       } catch(e) {
         show(
-          '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-          '<div class="error-card"><div class="error-icon">!</div>' +
-          '<div class="error-title">Could Not Load P&L</div>' +
+          '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+          '<div class="error-card"><div class="error-icon">&#9888;</div>' +
+          '<div class="error-title">Could Not Load P&amp;L</div>' +
           '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
-          '<button class="btn-retry" onclick="showPnlPage()">Try Again</button></div>'
+          '<button class="btn-retry" onclick="showPnlPage()">&#8635; Try Again</button></div>'
         );
       }
     }
@@ -614,9 +609,9 @@
         var data = await res.json();
         if (data.found) {
           show(
-            '<button class="btn-back" onclick="showHomePage()">Back</button>' +
+            '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
             '<div class="welcome-card">' +
-              '<div style="font-size:36px;margin-bottom:12px;">OK</div>' +
+              '<div style="font-size:36px;margin-bottom:12px;">&#9989;</div>' +
               '<div class="card-title" style="margin-bottom:20px;">Welcome back, ' + name.split(' ')[0] + '!</div>' +
               '<div class="stat-row"><span class="stat-label">Trading Capital</span><span class="stat-value gold">' + fmt(data.capital) + '</span></div>' +
               '<div class="stat-row"><span class="stat-label">Risk per Trade</span><span class="stat-value">' + fmt(Math.round(data.capital * 0.01)) + '</span></div>' +
@@ -627,25 +622,25 @@
         } else { showUpdateCapital(true); }
       } catch(e) {
         show(
-          '<button class="btn-back" onclick="showHomePage()">Back</button>' +
-          '<div class="error-card"><div class="error-icon">!</div>' +
+          '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
+          '<div class="error-card"><div class="error-icon">&#9888;</div>' +
           '<div class="error-title">Could Not Load Capital</div>' +
           '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
-          '<button class="btn-retry" onclick="showCapitalPage()">Try Again</button></div>'
+          '<button class="btn-retry" onclick="showCapitalPage()">&#8635; Try Again</button></div>'
         );
       }
     }
 
     function showUpdateCapital(isNew) {
       show(
-        '<button class="btn-back" onclick="showHomePage()">Back</button>' +
+        '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
         '<div class="card">' +
-          '<div class="card-title">' + (isNew ? 'Welcome to Bang-On!' : 'Update Capital') + '</div>' +
+          '<div class="card-title">' + (isNew ? '&#128075; Welcome to Bang-On!' : '&#128176; Update Capital') + '</div>' +
           '<div class="card-sub">' + (isNew ? 'Enter your trading capital to get personalised position sizes.' : 'Enter your new trading capital.') + '</div>' +
           '<div class="input-label">Your Trading Capital</div>' +
-          '<div class="input-wrap"><span class="rupee">Rs.</span><input type="number" id="capitalInput" placeholder="500000" min="10000" oninput="updateRisk()" /></div>' +
-          '<div class="risk-row"><span class="risk-label">Risk per trade (1%)</span><span class="risk-value" id="riskDisplay">Rs.0</span></div>' +
-          '<button class="btn btn-disabled" id="submitBtn" disabled onclick="submitCapital()">' + (isNew ? 'Get Started' : 'Update Capital') + '</button>' +
+          '<div class="input-wrap"><span class="rupee">' + RUPEE + '</span><input type="number" id="capitalInput" placeholder="500000" min="10000" oninput="updateRisk()" /></div>' +
+          '<div class="risk-row"><span class="risk-label">Risk per trade (1%)</span><span class="risk-value" id="riskDisplay">' + RUPEE + '0</span></div>' +
+          '<button class="btn btn-disabled" id="submitBtn" disabled onclick="submitCapital()">' + (isNew ? 'Get Started &#8594;' : 'Update Capital &#8594;') + '</button>' +
           '<div class="confirm-box" id="capitalConfirm"></div>' +
         '</div>'
       );
@@ -653,7 +648,7 @@
 
     function updateRisk() {
       var val = parseInt(document.getElementById('capitalInput').value) || 0;
-      document.getElementById('riskDisplay').textContent = val > 0 ? 'Rs.' + Math.round(val * 0.01).toLocaleString('en-IN') : 'Rs.0';
+      document.getElementById('riskDisplay').textContent = val > 0 ? RUPEE + Math.round(val * 0.01).toLocaleString('en-IN') : RUPEE + '0';
       var btn = document.getElementById('submitBtn');
       btn.className = val >= 10000 ? 'btn btn-primary' : 'btn btn-disabled';
       btn.disabled  = val < 10000;
@@ -670,7 +665,7 @@
         var box  = document.getElementById('capitalConfirm');
         if (data.success) {
           box.style.display = 'block'; box.className = 'confirm-box success';
-          box.textContent = 'Capital saved! Rs.' + capital.toLocaleString('en-IN');
+          box.textContent = 'Capital saved! ' + RUPEE + capital.toLocaleString('en-IN');
           setTimeout(function() { showSignalsListPage(); }, 1500);
         } else {
           box.style.display = 'block'; box.className = 'confirm-box error';
