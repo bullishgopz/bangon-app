@@ -131,6 +131,12 @@
     .hidden { display: none; }
     .date-label { font-size: 12px; color: #8899aa; margin-bottom: 16px; }
     .section-header { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-left: 4px; }
+    /* ── NEW: error card ── */
+    .error-card { background: #2a1a1a; border: 1px solid #5a2a2a; border-radius: 14px; padding: 20px; margin-bottom: 16px; text-align: center; }
+    .error-icon { font-size: 32px; margin-bottom: 10px; }
+    .error-title { font-size: 15px; font-weight: 700; color: #e74c3c; margin-bottom: 8px; }
+    .error-msg { font-size: 12px; color: #8899aa; line-height: 1.6; margin-bottom: 16px; }
+    .btn-retry { background: #f0b429; color: #0f1923; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -163,14 +169,35 @@
     const sigParam  = urlParams.get('sig');
     const pnlParam  = urlParams.get('pnl');
 
+    // ── FIX 1: fetch with 10-second timeout ───────────────────
+    function fetchWithTimeout(url, ms) {
+      ms = ms || 10000;
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, ms);
+      return fetch(url, { signal: controller.signal })
+        .then(function(r) { clearTimeout(timer); return r; })
+        .catch(function(err) {
+          clearTimeout(timer);
+          if (err.name === 'AbortError') throw new Error('Request timed out — check your internet connection.');
+          throw err;
+        });
+    }
+
+    // ── FIX 2: visible error screen ───────────────────────────
+    function showError(title, message, retryFn) {
+      var retryBtn = retryFn
+        ? '<button class="btn-retry" onclick="' + retryFn + '">🔄 Try Again</button>'
+        : '';
+      show('<div class="error-card"><div class="error-icon">⚠️</div><div class="error-title">' + title + '</div><div class="error-msg">' + message + '</div>' + retryBtn + '</div>');
+    }
+
     // ── Build Telegram deep link ───────────────────────────────
     function makeTgLink(startapp) {
       var base = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME;
       return startapp ? base + '?startapp=' + encodeURIComponent(startapp) : base;
     }
 
-    // ── Open Telegram link — works on all devices ─────────────
-  function openTelegram(startapp) {
+    function openTelegram(startapp) {
       var link = makeTgLink(startapp);
       window.location.href = link;
     }
@@ -183,13 +210,13 @@
 
     function show(html) {
       document.getElementById('loadingScreen').classList.add('hidden');
-      const el = document.getElementById('appContent');
+      var el = document.getElementById('appContent');
       el.innerHTML = html;
       el.classList.remove('hidden');
     }
 
     function parseSigParam(raw) {
-      const parts = raw.split('_');
+      var parts = raw.split('_');
       return {
         id:         parts[0] + '_' + parts[1],
         sym:        parts[0] || '',
@@ -205,19 +232,28 @@
 
     // ── ROUTER ────────────────────────────────────────────────
     window.onload = async function () {
+      // FIX 3: guard — if no userID inside Telegram, show helpful message
+      if (isInTG && !userID) {
+        showError('Could Not Identify You', 'Telegram did not share your user ID. Please close this app and re-open it from the Bang-On group.', '');
+        return;
+      }
+
       if (!isInTG) {
-        // Browser access
         if (sigParam)      showBrowserSignalPreview(parseSigParam(sigParam));
         else if (pnlParam) showBrowserPnlRedirect();
         else               showBrowserHome();
         return;
       }
       // Inside Telegram
-      if (startParam.startsWith('sig_'))  await showSignalPage(parseSigParam(startParam.replace('sig_', '')));
-      else if (startParam === 'pnl')      await showPnlPage();
-      else if (startParam === 'capital')  await showCapitalPage();
-      else if (startParam === 'signals')  await showSignalsListPage();
-      else                                await showHomePage();
+      try {
+        if (startParam.startsWith('sig_'))  await showSignalPage(parseSigParam(startParam.replace('sig_', '')));
+        else if (startParam === 'pnl')      await showPnlPage();
+        else if (startParam === 'capital')  await showCapitalPage();
+        else if (startParam === 'signals')  await showSignalsListPage();
+        else                                await showHomePage();
+      } catch(e) {
+        showError('Something went wrong', 'Error: ' + (e.message || 'Unknown error') + '<br><br>Please close and reopen the app.', '');
+      }
     };
 
     // ════════════════════════════════════════════════════
@@ -225,55 +261,55 @@
     // ════════════════════════════════════════════════════
 
     function showBrowserSignalPreview(signal) {
-      const startapp = 'sig_' + signal.sym + '_' + signal.tf + '_' + signal.entry + '_' + signal.sl + '_' + signal.t1 + '_' + signal.t2 + '_' + signal.score;
-      const t2Row    = signal.t2 > 0 ? `<div class="row"><span class="row-label">Target 2</span><span class="row-value green">${fmt(signal.t2)}</span></div>` : '';
-      show(`
-        <div class="card">
-          <div class="signal-header">
-            <div class="symbol">${signal.sym}</div>
-            <div class="badge ${badgeClass(signal.tf)}">${signal.tf}</div>
-          </div>
-          <div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">${signal.score} / 100</span></div>
-          <div class="divider"></div>
-          <div class="section-title">Signal Levels</div>
-          <div class="row"><span class="row-label">Entry</span><span class="row-value">${fmt(signal.entry)}</span></div>
-          <div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">${fmt(signal.sl)}</span></div>
-          <div class="row"><span class="row-label">Target 1</span><span class="row-value green">${fmt(signal.t1)}</span></div>
-          ${t2Row}
-        </div>
-        <div class="redirect-card">
-          <div class="redirect-icon">🎯</div>
-          <div class="redirect-title">See Your Personal Position Size</div>
-          <div class="redirect-sub">Tap below to open Bang-On in Telegram.<br>You'll see your exact position size,<br>capital required, and TAKE or SKIP.</div>
-          <button class="btn-tg" onclick="openTelegram('${startapp}')">📊 Open in Telegram</button>
-        </div>
-        <div style="text-align:center;font-size:11px;color:#3a4f63;margin-top:8px;">🔒 Your capital and position data stay private</div>
-      `);
+      var startapp = 'sig_' + signal.sym + '_' + signal.tf + '_' + signal.entry + '_' + signal.sl + '_' + signal.t1 + '_' + signal.t2 + '_' + signal.score;
+      var t2Row    = signal.t2 > 0 ? '<div class="row"><span class="row-label">Target 2</span><span class="row-value green">' + fmt(signal.t2) + '</span></div>' : '';
+      show(
+        '<div class="card">' +
+          '<div class="signal-header">' +
+            '<div class="symbol">' + signal.sym + '</div>' +
+            '<div class="badge ' + badgeClass(signal.tf) + '">' + signal.tf + '</div>' +
+          '</div>' +
+          '<div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">' + signal.score + ' / 100</span></div>' +
+          '<div class="divider"></div>' +
+          '<div class="section-title">Signal Levels</div>' +
+          '<div class="row"><span class="row-label">Entry</span><span class="row-value">' + fmt(signal.entry) + '</span></div>' +
+          '<div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">' + fmt(signal.sl) + '</span></div>' +
+          '<div class="row"><span class="row-label">Target 1</span><span class="row-value green">' + fmt(signal.t1) + '</span></div>' +
+          t2Row +
+        '</div>' +
+        '<div class="redirect-card">' +
+          '<div class="redirect-icon">🎯</div>' +
+          '<div class="redirect-title">See Your Personal Position Size</div>' +
+          '<div class="redirect-sub">Tap below to open Bang-On in Telegram.<br>You\'ll see your exact position size,<br>capital required, and TAKE or SKIP.</div>' +
+          '<button class="btn-tg" onclick="openTelegram(\'' + startapp + '\')">📊 Open in Telegram</button>' +
+        '</div>' +
+        '<div style="text-align:center;font-size:11px;color:#3a4f63;margin-top:8px;">🔒 Your capital and position data stay private</div>'
+      );
     }
 
     function showBrowserPnlRedirect() {
-      show(`
-        <div class="redirect-card">
-          <div class="redirect-icon">📈</div>
-          <div class="redirect-title">View Your Personal P&L</div>
-          <div class="redirect-sub">Your P&L dashboard is private and<br>only available inside Telegram.<br>Tap below to open it.</div>
-          <button class="btn-tg" onclick="openTelegram('pnl')">📈 Open My P&L in Telegram</button>
-        </div>
-      `);
+      show(
+        '<div class="redirect-card">' +
+          '<div class="redirect-icon">📈</div>' +
+          '<div class="redirect-title">View Your Personal P&L</div>' +
+          '<div class="redirect-sub">Your P&L dashboard is private and<br>only available inside Telegram.<br>Tap below to open it.</div>' +
+          '<button class="btn-tg" onclick="openTelegram(\'pnl\')">📈 Open My P&L in Telegram</button>' +
+        '</div>'
+      );
     }
 
     function showBrowserHome() {
-      show(`
-        <div class="home-screen">
-          <div style="font-size:48px;margin-bottom:16px;">🔔</div>
-          <div class="welcome">Bang-On Personal</div>
-          <div class="welcome-sub" style="margin-bottom:32px;">Your personal trading dashboard</div>
-          <div class="redirect-card" style="width:100%;max-width:360px;">
-            <div class="redirect-sub">Bang-On Personal works inside Telegram.<br>Tap below to open your dashboard.</div>
-            <button class="btn-tg" onclick="openTelegram('')">📊 Open in Telegram</button>
-          </div>
-        </div>
-      `);
+      show(
+        '<div class="home-screen">' +
+          '<div style="font-size:48px;margin-bottom:16px;">🔔</div>' +
+          '<div class="welcome">Bang-On Personal</div>' +
+          '<div class="welcome-sub" style="margin-bottom:32px;">Your personal trading dashboard</div>' +
+          '<div class="redirect-card" style="width:100%;max-width:360px;">' +
+            '<div class="redirect-sub">Bang-On Personal works inside Telegram.<br>Tap below to open your dashboard.</div>' +
+            '<button class="btn-tg" onclick="openTelegram(\'\')">📊 Open in Telegram</button>' +
+          '</div>' +
+        '</div>'
+      );
     }
 
     // ════════════════════════════════════════════════════
@@ -281,59 +317,70 @@
     // ════════════════════════════════════════════════════
 
     async function showHomePage() {
-      show(`
-        <div class="home-screen">
-          <div class="welcome">Hey ${name.split(' ')[0]}! 👋</div>
-          <div class="welcome-sub">What would you like to do?</div>
-          <button class="home-btn btn-signals" onclick="showSignalsListPage()">
-            <span class="home-btn-icon">📊</span>
-            <span><div class="home-btn-title">Today's Signals</div><div class="home-btn-sub">View signals & take/skip trades</div></span>
-          </button>
-          <button class="home-btn btn-pnl" onclick="showPnlPage()">
-            <span class="home-btn-icon">📈</span>
-            <span><div class="home-btn-title">My P&L</div><div class="home-btn-sub">Open, closed & skipped trades</div></span>
-          </button>
-          <button class="home-btn btn-capital" onclick="showCapitalPage()">
-            <span class="home-btn-icon">💰</span>
-            <span><div class="home-btn-title">My Capital</div><div class="home-btn-sub">View or update your trading capital</div></span>
-          </button>
-        </div>
-      `);
+      show(
+        '<div class="home-screen">' +
+          '<div class="welcome">Hey ' + name.split(' ')[0] + '! 👋</div>' +
+          '<div class="welcome-sub">What would you like to do?</div>' +
+          '<button class="home-btn btn-signals" onclick="showSignalsListPage()">' +
+            '<span class="home-btn-icon">📊</span>' +
+            '<span><div class="home-btn-title">Today\'s Signals</div><div class="home-btn-sub">View signals & take/skip trades</div></span>' +
+          '</button>' +
+          '<button class="home-btn btn-pnl" onclick="showPnlPage()">' +
+            '<span class="home-btn-icon">📈</span>' +
+            '<span><div class="home-btn-title">My P&L</div><div class="home-btn-sub">Open, closed & skipped trades</div></span>' +
+          '</button>' +
+          '<button class="home-btn btn-capital" onclick="showCapitalPage()">' +
+            '<span class="home-btn-icon">💰</span>' +
+            '<span><div class="home-btn-title">My Capital</div><div class="home-btn-sub">View or update your trading capital</div></span>' +
+          '</button>' +
+        '</div>'
+      );
     }
 
     async function showSignalsListPage() {
       show('<div class="loading">Loading today\'s signals...</div>');
       try {
-        const res     = await fetch(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID));
-        const data    = await res.json();
-        const signals = data.signals || [];
+        var res     = await fetchWithTimeout(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID));
+        var data    = await res.json();
+        var signals = data.signals || [];
         if (signals.length === 0) {
-          show(`<button class="btn-back" onclick="showHomePage()">← Back</button>
-            <div class="card"><div class="card-title">📊 Today's Signals</div>
-            <div class="empty">No signals fired today yet.<br>Check back during market hours.</div></div>`);
+          show(
+            '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+            '<div class="card"><div class="card-title">📊 Today\'s Signals</div>' +
+            '<div class="empty">No signals fired today yet.<br>Check back during market hours.</div></div>'
+          );
           return;
         }
-        const items = signals.map(s => {
-          const ua          = s.userAction || '';
-          const statusClass = ua === 'TAKE' ? 'status-taken' : ua === 'SKIP' ? 'status-skipped' : 'status-open';
-          const statusText  = ua === 'TAKE' ? '✅ Taken' : ua === 'SKIP' ? '❌ Skipped' : '⏳ Not acted on';
-          const encoded     = encodeURIComponent(JSON.stringify(s));
-          return `
-            <div class="signal-item" onclick="openSignalFromList('${encoded}')">
-              <div class="signal-item-left">
-                <div class="signal-item-sym">${s.sym}</div>
-                <div class="signal-item-detail">${s.tf} · Entry ₹${Number(s.entry).toLocaleString('en-IN')} · SL ₹${Number(s.sl).toLocaleString('en-IN')}</div>
-              </div>
-              <div class="signal-item-right">
-                <div class="signal-item-score">Score ${s.score}</div>
-                <div class="signal-item-status ${statusClass}">${statusText}</div>
-              </div>
-            </div>`;
+        var items = signals.map(function(s) {
+          var ua          = s.userAction || '';
+          var statusClass = ua === 'TAKE' ? 'status-taken' : ua === 'SKIP' ? 'status-skipped' : 'status-open';
+          var statusText  = ua === 'TAKE' ? '✅ Taken' : ua === 'SKIP' ? '❌ Skipped' : '⏳ Not acted on';
+          var encoded     = encodeURIComponent(JSON.stringify(s));
+          return (
+            '<div class="signal-item" onclick="openSignalFromList(\'' + encoded + '\')">' +
+              '<div class="signal-item-left">' +
+                '<div class="signal-item-sym">' + s.sym + '</div>' +
+                '<div class="signal-item-detail">' + s.tf + ' · Entry ₹' + Number(s.entry).toLocaleString('en-IN') + ' · SL ₹' + Number(s.sl).toLocaleString('en-IN') + '</div>' +
+              '</div>' +
+              '<div class="signal-item-right">' +
+                '<div class="signal-item-score">Score ' + s.score + '</div>' +
+                '<div class="signal-item-status ' + statusClass + '">' + statusText + '</div>' +
+              '</div>' +
+            '</div>'
+          );
         }).join('');
-        show(`<button class="btn-back" onclick="showHomePage()">← Back</button>
-          <div class="section-header">📊 Today's Active Signals</div>${items}`);
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="section-header">📊 Today\'s Active Signals</div>' + items
+        );
       } catch(e) {
-        show('<div class="empty">Failed to load signals. Please try again.</div>');
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="error-card"><div class="error-icon">⚠️</div>' +
+          '<div class="error-title">Could Not Load Signals</div>' +
+          '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
+          '<button class="btn-retry" onclick="showSignalsListPage()">🔄 Try Again</button></div>'
+        );
       }
     }
 
@@ -343,157 +390,204 @@
 
     async function showSignalPage(signal) {
       show('<div class="loading">Loading your position...</div>');
-      let userCapital = 0, userFound = false;
-      const userAction = signal.userAction || '';
+      var userCapital = 0, userFound = false;
+      var userAction  = signal.userAction || '';
+
+      // FIX 4: fetch with timeout + visible error instead of silent catch
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
-        const data = await res.json();
+        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
+        var data = await res.json();
         if (data.found) { userCapital = Number(data.capital); userFound = true; }
-      } catch(e) {}
-      const riskAmt      = Math.round(userCapital * 0.01);
-      const riskPerShare = signal.entry - signal.sl;
-      const shares       = riskPerShare > 0 && userCapital > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
-      const required     = Math.round(shares * signal.entry);
-      const adequate     = userCapital >= required;
-      const t2Row        = signal.t2 > 0 ? `<div class="row"><span class="row-label">Target 2</span><span class="row-value green">${fmt(signal.t2)}</span></div>` : '';
-      let actionSection  = '';
-      if (!userFound) {
-        actionSection = `<div class="card"><div class="section-title">Your Position</div>
-          <div class="empty" style="padding:10px 0 4px;">You haven't registered your capital yet.</div>
-          <button class="btn btn-primary" style="margin-top:16px;" onclick="showCapitalPage()">💰 Set My Capital →</button></div>`;
-      } else if (userAction === 'TAKE') {
-        actionSection = `<div class="card"><div class="section-title">Your Position</div>
-          <div class="row"><span class="row-label">Your Capital</span><span class="row-value gold">${fmt(userCapital)}</span></div>
-          <div class="row"><span class="row-label">Position Size</span><span class="row-value gold">${shares} shares</span></div>
-          <div class="row"><span class="row-label">Capital Required</span><span class="row-value">${fmt(required)}</span></div>
-          <div class="divider"></div>
-          <div class="action-taken">✅ You have taken this trade</div>
-          <button class="btn btn-primary" onclick="showPnlPage()">📈 View My P&L →</button></div>`;
-      } else if (userAction === 'SKIP') {
-        actionSection = `<div class="card"><div class="section-title">Your Position</div>
-          <div class="row"><span class="row-label">Would have been</span><span class="row-value gold">${shares} shares</span></div>
-          <div class="divider"></div>
-          <div class="action-skipped">❌ You skipped this signal</div></div>`;
-      } else {
-        actionSection = `<div class="card"><div class="section-title">Your Position</div>
-          <div class="row"><span class="row-label">Your Capital</span><span class="row-value gold">${fmt(userCapital)}</span></div>
-          <div class="row"><span class="row-label">Risk Amount (1%)</span><span class="row-value">${fmt(riskAmt)}</span></div>
-          <div class="row"><span class="row-label">Position Size</span><span class="row-value gold">${shares} shares</span></div>
-          <div class="row"><span class="row-label">Capital Required</span><span class="row-value">${fmt(required)}</span></div>
-          <div class="row"><span class="row-label">Capital Status</span><span class="row-value ${adequate ? 'green' : 'red'}">${adequate ? '✅ Sufficient' : '⚠️ Insufficient'}</span></div>
-          <div class="divider"></div>
-          <button class="btn ${adequate ? 'btn-take' : 'btn-disabled'}" id="takeBtn" ${!adequate ? 'disabled' : ''}
-            onclick="logAction('TAKE','${signal.id}','${signal.sym}','${signal.tf}',${shares},${required},${signal.entry},${signal.sl})">✅ TAKE this Trade</button>
-          <button class="btn btn-skip" id="skipBtn"
-            onclick="logAction('SKIP','${signal.id}','${signal.sym}','${signal.tf}',${shares},${required},${signal.entry},${signal.sl})">❌ SKIP this Trade</button>
-          <div class="confirm-box" id="confirmBox"></div></div>`;
+      } catch(e) {
+        // Show error — do NOT silently continue with zero capital
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="error-card"><div class="error-icon">⚠️</div>' +
+          '<div class="error-title">Could Not Load Your Data</div>' +
+          '<div class="error-msg">' + (e.message || 'Connection failed. Check your internet and try again.') + '</div>' +
+          '<button class="btn-retry" onclick="showSignalPage_retry()">🔄 Try Again</button></div>'
+        );
+        // Store signal for retry
+        window._retrySignal = signal;
+        return;
       }
-      show(`
-        <button class="btn-back" onclick="showSignalsListPage()">← Back to Signals</button>
-        <div class="card">
-          <div class="signal-header"><div class="symbol">${signal.sym}</div><div class="badge ${badgeClass(signal.tf)}">${signal.tf}</div></div>
-          <div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">${signal.score} / 100</span></div>
-          <div class="divider"></div>
-          <div class="section-title">Signal Levels</div>
-          <div class="row"><span class="row-label">Entry</span><span class="row-value">${fmt(signal.entry)}</span></div>
-          <div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">${fmt(signal.sl)}</span></div>
-          <div class="row"><span class="row-label">Target 1</span><span class="row-value green">${fmt(signal.t1)}</span></div>
-          ${t2Row}
-        </div>
-        ${actionSection}
-      `);
+
+      var riskAmt      = Math.round(userCapital * 0.01);
+      var riskPerShare = signal.entry - signal.sl;
+      var shares       = riskPerShare > 0 && userCapital > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+      var required     = Math.round(shares * signal.entry);
+      var adequate     = userCapital >= required;
+      var t2Row        = signal.t2 > 0 ? '<div class="row"><span class="row-label">Target 2</span><span class="row-value green">' + fmt(signal.t2) + '</span></div>' : '';
+      var actionSection = '';
+
+      if (!userFound) {
+        actionSection =
+          '<div class="card"><div class="section-title">Your Position</div>' +
+          '<div class="empty" style="padding:10px 0 4px;">You haven\'t registered your capital yet.</div>' +
+          '<button class="btn btn-primary" style="margin-top:16px;" onclick="showCapitalPage()">💰 Set My Capital →</button></div>';
+      } else if (userAction === 'TAKE') {
+        actionSection =
+          '<div class="card"><div class="section-title">Your Position</div>' +
+          '<div class="row"><span class="row-label">Your Capital</span><span class="row-value gold">' + fmt(userCapital) + '</span></div>' +
+          '<div class="row"><span class="row-label">Position Size</span><span class="row-value gold">' + shares + ' shares</span></div>' +
+          '<div class="row"><span class="row-label">Capital Required</span><span class="row-value">' + fmt(required) + '</span></div>' +
+          '<div class="divider"></div>' +
+          '<div class="action-taken">✅ You have taken this trade</div>' +
+          '<button class="btn btn-primary" onclick="showPnlPage()">📈 View My P&L →</button></div>';
+      } else if (userAction === 'SKIP') {
+        actionSection =
+          '<div class="card"><div class="section-title">Your Position</div>' +
+          '<div class="row"><span class="row-label">Would have been</span><span class="row-value gold">' + shares + ' shares</span></div>' +
+          '<div class="divider"></div>' +
+          '<div class="action-skipped">❌ You skipped this signal</div></div>';
+      } else {
+        actionSection =
+          '<div class="card"><div class="section-title">Your Position</div>' +
+          '<div class="row"><span class="row-label">Your Capital</span><span class="row-value gold">' + fmt(userCapital) + '</span></div>' +
+          '<div class="row"><span class="row-label">Risk Amount (1%)</span><span class="row-value">' + fmt(riskAmt) + '</span></div>' +
+          '<div class="row"><span class="row-label">Position Size</span><span class="row-value gold">' + shares + ' shares</span></div>' +
+          '<div class="row"><span class="row-label">Capital Required</span><span class="row-value">' + fmt(required) + '</span></div>' +
+          '<div class="row"><span class="row-label">Capital Status</span><span class="row-value ' + (adequate ? 'green' : 'red') + '">' + (adequate ? '✅ Sufficient' : '⚠️ Insufficient') + '</span></div>' +
+          '<div class="divider"></div>' +
+          '<button class="btn ' + (adequate ? 'btn-take' : 'btn-disabled') + '" id="takeBtn" ' + (!adequate ? 'disabled' : '') +
+            ' onclick="logAction(\'TAKE\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">✅ TAKE this Trade</button>' +
+          '<button class="btn btn-skip" id="skipBtn"' +
+            ' onclick="logAction(\'SKIP\',\'' + signal.id + '\',\'' + signal.sym + '\',\'' + signal.tf + '\',' + shares + ',' + required + ',' + signal.entry + ',' + signal.sl + ')">❌ SKIP this Trade</button>' +
+          '<div class="confirm-box" id="confirmBox"></div></div>';
+      }
+
+      show(
+        '<button class="btn-back" onclick="showSignalsListPage()">← Back to Signals</button>' +
+        '<div class="card">' +
+          '<div class="signal-header"><div class="symbol">' + signal.sym + '</div><div class="badge ' + badgeClass(signal.tf) + '">' + signal.tf + '</div></div>' +
+          '<div class="score-row"><span class="score-label">Signal Score</span><span class="score-value">' + signal.score + ' / 100</span></div>' +
+          '<div class="divider"></div>' +
+          '<div class="section-title">Signal Levels</div>' +
+          '<div class="row"><span class="row-label">Entry</span><span class="row-value">' + fmt(signal.entry) + '</span></div>' +
+          '<div class="row"><span class="row-label">Stop Loss</span><span class="row-value red">' + fmt(signal.sl) + '</span></div>' +
+          '<div class="row"><span class="row-label">Target 1</span><span class="row-value green">' + fmt(signal.t1) + '</span></div>' +
+          t2Row +
+        '</div>' +
+        actionSection
+      );
+    }
+
+    // Retry helper for signal page
+    function showSignalPage_retry() {
+      if (window._retrySignal) showSignalPage(window._retrySignal);
     }
 
     async function logAction(action, sigID, sym, tf, shares, capReq, entry, sl) {
-      const takeBtn = document.getElementById('takeBtn');
-      const skipBtn = document.getElementById('skipBtn');
-      const box     = document.getElementById('confirmBox');
+      var takeBtn = document.getElementById('takeBtn');
+      var skipBtn = document.getElementById('skipBtn');
+      var box     = document.getElementById('confirmBox');
       if (takeBtn) { takeBtn.className = 'btn btn-disabled'; takeBtn.disabled = true; takeBtn.textContent = action === 'TAKE' ? '✅ TAKEN' : '✅ TAKE'; }
       if (skipBtn) { skipBtn.className = 'btn btn-disabled'; skipBtn.disabled = true; skipBtn.textContent = action === 'SKIP' ? '❌ SKIPPED' : '❌ SKIP'; }
       if (box)     { box.style.display = 'block'; box.className = 'confirm-box success'; box.textContent = 'Processing...'; }
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=logAction&userID=' + encodeURIComponent(userID) + '&name=' + encodeURIComponent(name) + '&signalID=' + encodeURIComponent(sigID) + '&symbol=' + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf) + '&act=' + action + '&shares=' + shares + '&capReq=' + capReq + '&entry=' + entry + '&sl=' + sl);
-        const data = await res.json();
-        if (box) { box.textContent = data.success ? (action === 'TAKE' ? '✅ Trade Taken! Good luck with ' + sym + '!' : '❌ Signal Skipped!') : 'Something went wrong.'; box.className = 'confirm-box ' + (data.success ? 'success' : 'error'); }
+        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=logAction&userID=' + encodeURIComponent(userID) + '&name=' + encodeURIComponent(name) + '&signalID=' + encodeURIComponent(sigID) + '&symbol=' + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf) + '&act=' + action + '&shares=' + shares + '&capReq=' + capReq + '&entry=' + entry + '&sl=' + sl);
+        var data = await res.json();
+        if (box) {
+          box.textContent  = data.success ? (action === 'TAKE' ? '✅ Trade Taken! Good luck with ' + sym + '!' : '❌ Signal Skipped!') : 'Something went wrong.';
+          box.className    = 'confirm-box ' + (data.success ? 'success' : 'error');
+        }
       } catch(e) {
-        if (box) { box.textContent = 'Connection error. Please try again.'; box.className = 'confirm-box error'; }
+        if (box) { box.textContent = 'Connection error: ' + (e.message || 'Please try again.'); box.className = 'confirm-box error'; }
       }
     }
 
     async function showPnlPage() {
       show('<div class="loading">Loading your P&L...</div>');
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=getUserPnL&userID=' + encodeURIComponent(userID));
-        const data = await res.json();
-        const openHTML = data.openTrades && data.openTrades.length > 0
-          ? data.openTrades.map(t => `
-            <div class="trade-card" id="open_${t.sigID}">
-              <div class="trade-header"><span class="trade-symbol">${t.sym}</span><span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span></div>
-              <div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">${t.shares} shares</span></div>
-              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${fmt(t.entry)}</span></div>
-              <div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">${t.cmp > 0 ? fmt(t.cmp) : '—'}</span></div>
-              <div class="pnl-row"><span class="pnl-label">Running P&L</span><span class="pnl-value ${pnlClass(t.pnl)}">${fmtPnl(t.pnl)}</span></div>
-              <button class="btn-close" id="closeBtn_${t.sigID}" onclick="showCloseForm('${t.sigID}')">📤 Close This Trade</button>
-              <div class="close-form" id="closeForm_${t.sigID}">
-                <div class="close-input-wrap"><span class="rupee-sm">₹</span><input class="close-input" type="number" id="exitInput_${t.sigID}" placeholder="Enter exit price" /></div>
-                <button class="btn-confirm" id="confirmBtn_${t.sigID}" onclick="confirmClose('${t.sigID}',${t.shares},${t.entry})">Confirm Close</button>
-                <div class="close-confirm-msg" id="closeMsg_${t.sigID}"></div>
-              </div>
-            </div>`).join('')
+        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=getUserPnL&userID=' + encodeURIComponent(userID));
+        var data = await res.json();
+        var openHTML = data.openTrades && data.openTrades.length > 0
+          ? data.openTrades.map(function(t) {
+              return (
+                '<div class="trade-card" id="open_' + t.sigID + '">' +
+                  '<div class="trade-header"><span class="trade-symbol">' + t.sym + '</span><span class="trade-tf ' + tfClass(t.tf) + '">' + t.tf + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">' + t.shares + ' shares</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + fmt(t.entry) + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '—') + '</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Running P&L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
+                  '<button class="btn-close" id="closeBtn_' + t.sigID + '" onclick="showCloseForm(\'' + t.sigID + '\')">📤 Close This Trade</button>' +
+                  '<div class="close-form" id="closeForm_' + t.sigID + '">' +
+                    '<div class="close-input-wrap"><span class="rupee-sm">₹</span><input class="close-input" type="number" id="exitInput_' + t.sigID + '" placeholder="Enter exit price" /></div>' +
+                    '<button class="btn-confirm" id="confirmBtn_' + t.sigID + '" onclick="confirmClose(\'' + t.sigID + '\',' + t.shares + ',' + t.entry + ')">Confirm Close</button>' +
+                    '<div class="close-confirm-msg" id="closeMsg_' + t.sigID + '"></div>' +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('')
           : '<div class="empty">No open trades</div>';
-        const closedHTML = data.closedTrades && data.closedTrades.length > 0
-          ? data.closedTrades.map(t => `
-            <div class="trade-card">
-              <div class="trade-header"><span class="trade-symbol">${t.sym}</span><span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span></div>
-              <div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">${t.shares} shares</span></div>
-              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${fmt(t.entry)}</span></div>
-              <div class="trade-row"><span class="trade-label">Exit</span><span class="trade-value">${fmt(t.exit)}</span></div>
-              <div class="pnl-row"><span class="pnl-label">Booked P&L</span><span class="pnl-value ${pnlClass(t.pnl)}">${fmtPnl(t.pnl)}</span></div>
-            </div>`).join('')
+
+        var closedHTML = data.closedTrades && data.closedTrades.length > 0
+          ? data.closedTrades.map(function(t) {
+              return (
+                '<div class="trade-card">' +
+                  '<div class="trade-header"><span class="trade-symbol">' + t.sym + '</span><span class="trade-tf ' + tfClass(t.tf) + '">' + t.tf + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Qty</span><span class="trade-value gold">' + t.shares + ' shares</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + fmt(t.entry) + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Exit</span><span class="trade-value">' + fmt(t.exit) + '</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Booked P&L</span><span class="pnl-value ' + pnlClass(t.pnl) + '">' + fmtPnl(t.pnl) + '</span></div>' +
+                '</div>'
+              );
+            }).join('')
           : '<div class="empty">No closed trades</div>';
-        const skippedHTML = data.skippedTrades && data.skippedTrades.length > 0
-          ? data.skippedTrades.map(t => `
-            <div class="trade-card">
-              <div class="trade-header"><span class="trade-symbol">${t.sym}</span><span class="trade-tf ${tfClass(t.tf)}">${t.tf}</span></div>
-              <div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">${t.entry > 0 ? fmt(t.entry) : '—'}</span></div>
-              <div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">${t.cmp > 0 ? fmt(t.cmp) : '—'}</span></div>
-              <div class="trade-row"><span class="trade-label">Would have been</span><span class="trade-value gold">${t.wouldShares} shares</span></div>
-              <div class="pnl-row"><span class="pnl-label">Missed P&L</span><span class="pnl-value ${pnlClass(t.missedPnl)}">${fmtPnl(t.missedPnl)}</span></div>
-            </div>`).join('')
+
+        var skippedHTML = data.skippedTrades && data.skippedTrades.length > 0
+          ? data.skippedTrades.map(function(t) {
+              return (
+                '<div class="trade-card">' +
+                  '<div class="trade-header"><span class="trade-symbol">' + t.sym + '</span><span class="trade-tf ' + tfClass(t.tf) + '">' + t.tf + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Entry</span><span class="trade-value">' + (t.entry > 0 ? fmt(t.entry) : '—') + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">CMP</span><span class="trade-value">' + (t.cmp > 0 ? fmt(t.cmp) : '—') + '</span></div>' +
+                  '<div class="trade-row"><span class="trade-label">Would have been</span><span class="trade-value gold">' + t.wouldShares + ' shares</span></div>' +
+                  '<div class="pnl-row"><span class="pnl-label">Missed P&L</span><span class="pnl-value ' + pnlClass(t.missedPnl) + '">' + fmtPnl(t.missedPnl) + '</span></div>' +
+                '</div>'
+              );
+            }).join('')
           : '<div class="empty">No skipped trades today</div>';
-        show(`
-          <button class="btn-back" onclick="showHomePage()">← Back</button>
-          <div class="date-label">${data.today || ''}</div>
-          <div class="total-card"><div class="total-label">Total P&L Today</div><div class="total-value ${pnlClass(data.totalPnl || 0)}">${fmtPnl(data.totalPnl || 0)}</div></div>
-          <div class="section-header">📂 Open Trades</div>${openHTML}
-          <div class="section-header" style="margin-top:16px;">✅ Closed Trades</div>${closedHTML}
-          <div class="section-header" style="margin-top:16px;">❌ Skipped Today</div>${skippedHTML}
-        `);
+
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="date-label">' + (data.today || '') + '</div>' +
+          '<div class="total-card"><div class="total-label">Total P&L Today</div><div class="total-value ' + pnlClass(data.totalPnl || 0) + '">' + fmtPnl(data.totalPnl || 0) + '</div></div>' +
+          '<div class="section-header">📂 Open Trades</div>' + openHTML +
+          '<div class="section-header" style="margin-top:16px;">✅ Closed Trades</div>' + closedHTML +
+          '<div class="section-header" style="margin-top:16px;">❌ Skipped Today</div>' + skippedHTML
+        );
       } catch(e) {
-        show('<div class="empty">Failed to load P&L. Please try again.</div>');
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="error-card"><div class="error-icon">⚠️</div>' +
+          '<div class="error-title">Could Not Load P&L</div>' +
+          '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
+          '<button class="btn-retry" onclick="showPnlPage()">🔄 Try Again</button></div>'
+        );
       }
     }
 
     function showCloseForm(sigID) {
-      const form = document.getElementById('closeForm_' + sigID);
+      var form = document.getElementById('closeForm_' + sigID);
       form.style.display = form.style.display === 'block' ? 'none' : 'block';
     }
 
     async function confirmClose(sigID, shares, entry) {
-      const exitPrice  = parseFloat(document.getElementById('exitInput_' + sigID).value);
+      var exitPrice  = parseFloat(document.getElementById('exitInput_' + sigID).value);
       if (!exitPrice || exitPrice <= 0) { alert('Please enter a valid exit price'); return; }
-      const confirmBtn = document.getElementById('confirmBtn_' + sigID);
-      const closeBtn   = document.getElementById('closeBtn_' + sigID);
+      var confirmBtn = document.getElementById('confirmBtn_' + sigID);
+      var closeBtn   = document.getElementById('closeBtn_' + sigID);
       confirmBtn.className = 'btn-confirm-done'; confirmBtn.textContent = 'Processing...';
       if (closeBtn) { closeBtn.style.opacity = '0.5'; closeBtn.disabled = true; }
       try {
-        const res   = await fetch(WEB_APP_URL + '?action=closeTrade&userID=' + encodeURIComponent(userID) + '&signalID=' + encodeURIComponent(sigID) + '&exitPrice=' + exitPrice);
-        const data  = await res.json();
-        const msgEl = document.getElementById('closeMsg_' + sigID);
+        var res   = await fetchWithTimeout(WEB_APP_URL + '?action=closeTrade&userID=' + encodeURIComponent(userID) + '&signalID=' + encodeURIComponent(sigID) + '&exitPrice=' + exitPrice);
+        var data  = await res.json();
+        var msgEl = document.getElementById('closeMsg_' + sigID);
         if (data.success) {
           confirmBtn.textContent = '✅ Trade Closed!';
           if (msgEl) { msgEl.textContent = 'Booked P&L: ' + fmtPnl(Math.round(shares * (exitPrice - entry))); msgEl.style.display = 'block'; }
-          setTimeout(() => showPnlPage(), 2000);
+          setTimeout(function() { showPnlPage(); }, 2000);
         } else {
           confirmBtn.className = 'btn-confirm'; confirmBtn.textContent = 'Confirm Close';
           if (closeBtn) { closeBtn.style.opacity = '1'; closeBtn.disabled = false; }
@@ -501,74 +595,84 @@
         }
       } catch(e) {
         confirmBtn.className = 'btn-confirm'; confirmBtn.textContent = 'Confirm Close';
-        alert('Connection error. Please try again.');
+        alert('Connection error: ' + (e.message || 'Please try again.'));
       }
     }
 
     async function showCapitalPage() {
       show('<div class="loading">Loading your capital...</div>');
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
-        const data = await res.json();
+        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
+        var data = await res.json();
         if (data.found) {
-          show(`
-            <button class="btn-back" onclick="showHomePage()">← Back</button>
-            <div class="welcome-card">
-              <div style="font-size:36px;margin-bottom:12px;">✅</div>
-              <div class="card-title" style="margin-bottom:20px;">Welcome back, ${name.split(' ')[0]}!</div>
-              <div class="stat-row"><span class="stat-label">Trading Capital</span><span class="stat-value gold">${fmt(data.capital)}</span></div>
-              <div class="stat-row"><span class="stat-label">Risk per Trade</span><span class="stat-value">${fmt(Math.round(data.capital * 0.01))}</span></div>
-              <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value">${data.status || 'Active'}</span></div>
-              <button class="btn btn-primary" style="margin-top:24px;" onclick="showUpdateCapital(false)">Update Capital</button>
-            </div>`);
+          show(
+            '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+            '<div class="welcome-card">' +
+              '<div style="font-size:36px;margin-bottom:12px;">✅</div>' +
+              '<div class="card-title" style="margin-bottom:20px;">Welcome back, ' + name.split(' ')[0] + '!</div>' +
+              '<div class="stat-row"><span class="stat-label">Trading Capital</span><span class="stat-value gold">' + fmt(data.capital) + '</span></div>' +
+              '<div class="stat-row"><span class="stat-label">Risk per Trade</span><span class="stat-value">' + fmt(Math.round(data.capital * 0.01)) + '</span></div>' +
+              '<div class="stat-row"><span class="stat-label">Status</span><span class="stat-value">' + (data.status || 'Active') + '</span></div>' +
+              '<button class="btn btn-primary" style="margin-top:24px;" onclick="showUpdateCapital(false)">Update Capital</button>' +
+            '</div>'
+          );
         } else { showUpdateCapital(true); }
-      } catch(e) { showUpdateCapital(true); }
+      } catch(e) {
+        show(
+          '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+          '<div class="error-card"><div class="error-icon">⚠️</div>' +
+          '<div class="error-title">Could Not Load Capital</div>' +
+          '<div class="error-msg">' + (e.message || 'Connection error') + '</div>' +
+          '<button class="btn-retry" onclick="showCapitalPage()">🔄 Try Again</button></div>'
+        );
+      }
     }
 
     function showUpdateCapital(isNew) {
-      show(`
-        <button class="btn-back" onclick="showHomePage()">← Back</button>
-        <div class="card">
-          <div class="card-title">${isNew ? '👋 Welcome to Bang-On!' : '💰 Update Capital'}</div>
-          <div class="card-sub">${isNew ? 'Enter your trading capital to get personalised position sizes.' : 'Enter your new trading capital.'}</div>
-          <div class="input-label">Your Trading Capital</div>
-          <div class="input-wrap"><span class="rupee">₹</span><input type="number" id="capitalInput" placeholder="500000" min="10000" oninput="updateRisk()" /></div>
-          <div class="risk-row"><span class="risk-label">Risk per trade (1%)</span><span class="risk-value" id="riskDisplay">₹0</span></div>
-          <button class="btn btn-disabled" id="submitBtn" disabled onclick="submitCapital()">${isNew ? 'Get Started →' : 'Update Capital →'}</button>
-          <div class="confirm-box" id="capitalConfirm"></div>
-        </div>`);
+      show(
+        '<button class="btn-back" onclick="showHomePage()">← Back</button>' +
+        '<div class="card">' +
+          '<div class="card-title">' + (isNew ? '👋 Welcome to Bang-On!' : '💰 Update Capital') + '</div>' +
+          '<div class="card-sub">' + (isNew ? 'Enter your trading capital to get personalised position sizes.' : 'Enter your new trading capital.') + '</div>' +
+          '<div class="input-label">Your Trading Capital</div>' +
+          '<div class="input-wrap"><span class="rupee">₹</span><input type="number" id="capitalInput" placeholder="500000" min="10000" oninput="updateRisk()" /></div>' +
+          '<div class="risk-row"><span class="risk-label">Risk per trade (1%)</span><span class="risk-value" id="riskDisplay">₹0</span></div>' +
+          '<button class="btn btn-disabled" id="submitBtn" disabled onclick="submitCapital()">' + (isNew ? 'Get Started →' : 'Update Capital →') + '</button>' +
+          '<div class="confirm-box" id="capitalConfirm"></div>' +
+        '</div>'
+      );
     }
 
     function updateRisk() {
-      const val = parseInt(document.getElementById('capitalInput').value) || 0;
+      var val = parseInt(document.getElementById('capitalInput').value) || 0;
       document.getElementById('riskDisplay').textContent = val > 0 ? '₹' + Math.round(val * 0.01).toLocaleString('en-IN') : '₹0';
-      const btn = document.getElementById('submitBtn');
+      var btn = document.getElementById('submitBtn');
       btn.className = val >= 10000 ? 'btn btn-primary' : 'btn btn-disabled';
       btn.disabled  = val < 10000;
     }
 
     async function submitCapital() {
-      const capital = parseInt(document.getElementById('capitalInput').value);
+      var capital = parseInt(document.getElementById('capitalInput').value);
       if (!capital || capital < 10000) return;
-      const btn = document.getElementById('submitBtn');
+      var btn = document.getElementById('submitBtn');
       btn.textContent = 'Saving...'; btn.disabled = true; btn.className = 'btn btn-disabled';
       try {
-        const res  = await fetch(WEB_APP_URL + '?action=registerUser&userID=' + encodeURIComponent(userID) + '&name=' + encodeURIComponent(name) + '&capital=' + capital);
-        const data = await res.json();
-        const box  = document.getElementById('capitalConfirm');
+        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=registerUser&userID=' + encodeURIComponent(userID) + '&name=' + encodeURIComponent(name) + '&capital=' + capital);
+        var data = await res.json();
+        var box  = document.getElementById('capitalConfirm');
         if (data.success) {
           box.style.display = 'block'; box.className = 'confirm-box success';
           box.textContent = '✅ Capital saved! ₹' + capital.toLocaleString('en-IN');
-          setTimeout(() => showSignalsListPage(), 1500);
+          setTimeout(function() { showSignalsListPage(); }, 1500);
         } else {
           box.style.display = 'block'; box.className = 'confirm-box error';
           box.textContent = 'Something went wrong. Please try again.';
           btn.className = 'btn btn-primary'; btn.disabled = false; btn.textContent = 'Try Again';
         }
       } catch(e) {
-        const box = document.getElementById('capitalConfirm');
+        var box = document.getElementById('capitalConfirm');
         box.style.display = 'block'; box.className = 'confirm-box error';
-        box.textContent = 'Connection error. Please try again.';
+        box.textContent = 'Connection error: ' + (e.message || 'Please try again.');
       }
     }
   </script>
