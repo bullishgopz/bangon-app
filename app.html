@@ -221,10 +221,10 @@
         id:         parts[0] + '_' + parts[1],
         sym:        parts[0] || '',
         tf:         parts[1] || '',
-        entry:      parseFloat(parts[2]) || 0,
-        sl:         parseFloat(parts[3]) || 0,
-        t1:         parseFloat(parts[4]) || 0,
-        t2:         parseFloat(parts[5]) || 0,
+        entry:      (parseFloat(parts[2]) || 0) / 100,
+        sl:         (parseFloat(parts[3]) || 0) / 100,
+        t1:         (parseFloat(parts[4]) || 0) / 100,
+        t2:         (parseFloat(parts[5]) || 0) / 100,
         score:      parts[6] || '',
         userAction: ''
       };
