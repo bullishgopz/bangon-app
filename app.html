@@ -240,7 +240,7 @@
           var parsedSig = parseSigParam(startParam.replace('sig_', ''));
           parsedSig = await enrichSignalWithUserAction(parsedSig);
           await showSignalPage(parsedSig);
-        }
+        } else
         else if (startParam === 'pnl')      await showPnlPage();
         else if (startParam === 'capital')  await showCapitalPage();
         else if (startParam === 'signals')  await showSignalsListPage();
@@ -465,6 +465,21 @@
 
     function showSignalPage_retry() {
       if (window._retrySignal) showSignalPage(window._retrySignal);
+    }
+
+    async function enrichSignalWithUserAction(signal) {
+      try {
+        var res     = await fetchWithTimeout(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID));
+        var data    = await res.json();
+        var signals = data.signals || [];
+        for (var i = 0; i < signals.length; i++) {
+          if (signals[i].sym === signal.sym && signals[i].tf === signal.tf) {
+            signal.userAction = signals[i].userAction || '';
+            break;
+          }
+        }
+      } catch(e) {}
+      return signal;
     }
 
     async function logAction(action, sigID, sym, tf, shares, capReq, entry, sl) {
