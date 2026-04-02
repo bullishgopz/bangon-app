@@ -238,7 +238,6 @@
       try {
         if (startParam.startsWith('sig_')) {
           var parsedSig = parseSigParam(startParam.replace('sig_', ''));
-          parsedSig = await enrichSignalWithUserAction(parsedSig);
           await showSignalPage(parsedSig);
         } else
         else if (startParam === 'pnl')      await showPnlPage();
@@ -388,9 +387,20 @@
       var userAction  = signal.userAction || '';
 
       try {
-        var res  = await fetchWithTimeout(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID));
-        var data = await res.json();
-        if (data.found) { userCapital = Number(data.capital); userFound = true; }
+        var results = await Promise.all([
+          fetchWithTimeout(WEB_APP_URL + '?action=getUser&userID=' + encodeURIComponent(userID)).then(function(r){ return r.json(); }),
+          fetchWithTimeout(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID)).then(function(r){ return r.json(); })
+        ]);
+        var userData   = results[0];
+        var signalData = results[1];
+        if (userData.found) { userCapital = Number(userData.capital); userFound = true; }
+        var signals = signalData.signals || [];
+        for (var si = 0; si < signals.length; si++) {
+          if (signals[si].sym === signal.sym && signals[si].tf === signal.tf) {
+            userAction = signals[si].userAction || '';
+            break;
+          }
+        }
       } catch(e) {
         show(
           '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
@@ -465,21 +475,6 @@
 
     function showSignalPage_retry() {
       if (window._retrySignal) showSignalPage(window._retrySignal);
-    }
-
-    async function enrichSignalWithUserAction(signal) {
-      try {
-        var res     = await fetchWithTimeout(WEB_APP_URL + '?action=getActiveSignals&userID=' + encodeURIComponent(userID));
-        var data    = await res.json();
-        var signals = data.signals || [];
-        for (var i = 0; i < signals.length; i++) {
-          if (signals[i].sym === signal.sym && signals[i].tf === signal.tf) {
-            signal.userAction = signals[i].userAction || '';
-            break;
-          }
-        }
-      } catch(e) {}
-      return signal;
     }
 
     async function logAction(action, sigID, sym, tf, shares, capReq, entry, sl) {
