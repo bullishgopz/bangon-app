@@ -236,7 +236,11 @@
         return;
       }
       try {
-        if (startParam.startsWith('sig_'))  await showSignalPage(parseSigParam(startParam.replace('sig_', '')));
+        if (startParam.startsWith('sig_')) {
+          var parsedSig = parseSigParam(startParam.replace('sig_', ''));
+          parsedSig = await enrichSignalWithUserAction(parsedSig);
+          await showSignalPage(parsedSig);
+        }
         else if (startParam === 'pnl')      await showPnlPage();
         else if (startParam === 'capital')  await showCapitalPage();
         else if (startParam === 'signals')  await showSignalsListPage();
