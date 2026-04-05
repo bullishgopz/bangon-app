@@ -239,8 +239,7 @@
         if (startParam.startsWith('sig_')) {
           var parsedSig = parseSigParam(startParam.replace('sig_', ''));
           await showSignalPage(parsedSig);
-        } else
-        else if (startParam === 'pnl')      await showPnlPage();
+        } else if (startParam === 'pnl')      await showPnlPage();
         else if (startParam === 'capital')  await showCapitalPage();
         else if (startParam === 'signals')  await showSignalsListPage();
         else                                await showHomePage();
