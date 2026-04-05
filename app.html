@@ -394,12 +394,15 @@
         var signalData = results[1];
         if (userData.found) { userCapital = Number(userData.capital); userFound = true; }
         var signals = signalData.signals || [];
+        var signalIsToday = false;
         for (var si = 0; si < signals.length; si++) {
           if (signals[si].sym === signal.sym && signals[si].tf === signal.tf) {
             userAction = signals[si].userAction || '';
+            signalIsToday = true;
             break;
           }
         }
+        if (!signalIsToday) { userAction = 'EXPIRED'; }
       } catch(e) {
         show(
           '<button class="btn-back" onclick="showHomePage()">&#8592; Back</button>' +
@@ -440,6 +443,10 @@
           '<div class="row"><span class="row-label">Would have been</span><span class="row-value gold">' + shares + ' shares</span></div>' +
           '<div class="divider"></div>' +
           '<div class="action-skipped">&#10060; You skipped this signal</div></div>';
+      } else if (userAction === 'EXPIRED') {
+        actionSection =
+          '<div class="card"><div class="section-title">Past Signal</div>' +
+          '<div class="empty" style="padding:10px 0;">This signal is from a previous session.<br>TAKE/SKIP is only available for today\'s signals.</div></div>';
       } else {
         actionSection =
           '<div class="card"><div class="section-title">Your Position</div>' +
